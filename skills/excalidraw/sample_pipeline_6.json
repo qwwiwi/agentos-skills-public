@@ -1,0 +1,53 @@
+{
+  "title": "Факт-чек контент pipeline",
+  "type": "pipeline",
+  "stages": [
+    {
+      "label": "1. ЗАПРОС",
+      "color": "input",
+      "blocks": [
+        {"text": "Тема\nТезис\nКонтекст"}
+      ]
+    },
+    {
+      "label": "2. РЕСЁРЧ",
+      "subtitle": "параллельно",
+      "color": "research",
+      "blocks": [
+        {"text": "Grok\nВеб-поиск"},
+        {"text": "Kimi\nДоп. источники"}
+      ]
+    },
+    {
+      "label": "3. АНАЛИЗ",
+      "color": "analysis",
+      "blocks": [
+        {"text": "Opus\nСинтез данных"},
+        {"text": "Риски\nПробелы"}
+      ]
+    },
+    {
+      "label": "4. РЕВЬЮ",
+      "color": "review",
+      "blocks": [
+        {"text": "Codex\nПроверка логики"},
+        {"text": "Контраргументы"}
+      ]
+    },
+    {
+      "label": "5. ФАКТ-ЧЕК",
+      "color": "final",
+      "blocks": [
+        {"text": "Перепроверка\nЦифр/дат"},
+        {"text": "Ссылки\nна источники"}
+      ]
+    },
+    {
+      "label": "6. ФИНАЛ",
+      "color": "final",
+      "blocks": [
+        {"text": "Чистовой текст\nПубликация"}
+      ]
+    }
+  ]
+}

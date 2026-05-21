@@ -1,0 +1,22 @@
+# Config with API keys
+config.json
+
+# State files
+.research_state.json
+.learning_data.json
+
+# Findings
+.findings/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Logs
+*.log
+.cache/
+.data/
+.env
+.env.*
+!.env.example

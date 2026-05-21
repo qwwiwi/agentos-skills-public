@@ -1,0 +1,71 @@
+"""Build unified blocks from /tmp/lesson<N>_steps.py and PATCH intensive_bonuses bonus_number=<BONUS_N>.
+
+Usage:
+  cp this file to /tmp/patch_db_l<N>.py
+  Edit:
+    - "lesson<N>_steps" import below
+    - "bonus_number=eq.<BONUS_N>" in URL
+    - DURATION value in meta block
+  Run on Thrall (NOT Mac mini — service-role key only there):
+    scp /tmp/lesson<N>_steps.py /tmp/patch_db_l<N>.py root@<your-staging-server-ip>:/root/
+    ssh root@<your-staging-server-ip> 'cp /root/lesson<N>_steps.py /tmp/lesson<N>_steps.py'  # ОБЯЗАТЕЛЬНО
+    ssh root@<your-staging-server-ip> 'set -a && source /home/<your-user>/intensive-agentos/bot/.env && set +a && cd /root && python3 patch_db_l<N>.py'
+"""
+import json, os, sys, urllib.request
+sys.path.insert(0, '/tmp')
+from lesson<N>_steps import STEPS, OUTCOME, SKILLS, TIMECODES, PROMPTS, REPOS, TITLE, DURATION, DESCRIPTION
+
+SUPABASE_URL = os.environ["SUPABASE_URL"].rstrip("/")
+SERVICE_KEY = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
+
+C = [0]
+def b(prefix):
+    """Generate unique block id."""
+    C[0] += 1
+    return f"{prefix}-{C[0]}"
+
+blocks = []
+blocks.append({"id": b("meta-dur"), "type": "meta", "key": "duration", "value": DURATION})
+blocks.append({"id": b("skills"), "type": "skills", "items": SKILLS})
+blocks.append({"id": b("outcome"), "type": "outcome", "items": OUTCOME})
+
+for num, title, goal, body, cmd, cmd_title, resources in STEPS:
+    step_b = {"id": b("step"), "type": "step", "num": num, "title": title, "goal": goal, "body": body}
+    if resources:
+        step_b["resources"] = resources
+    blocks.append(step_b)
+    if cmd:
+        code_b = {"id": b("code"), "type": "code", "lang": "bash", "code": cmd}
+        if cmd_title:
+            code_b["title"] = cmd_title
+        blocks.append(code_b)
+
+for ts, label in TIMECODES:
+    blocks.append({"id": b("tc"), "type": "timecode", "ts": ts, "label": label})
+
+for pid, label, text, featured in PROMPTS:
+    blocks.append({"id": b("prompt"), "type": "prompt", "label": label, "text": text, "featured": featured})
+
+for slug, desc in REPOS:
+    blocks.append({"id": b("github"), "type": "github", "slug": slug, "desc": desc})
+
+payload = {"title": TITLE, "description": DESCRIPTION, "blocks": blocks}
+
+# === EDIT bonus_number ===
+url = f"{SUPABASE_URL}/rest/v1/intensive_bonuses?bonus_number=eq.<BONUS_N>"
+
+req = urllib.request.Request(
+    url,
+    data=json.dumps(payload).encode(),
+    method="PATCH",
+    headers={
+        "apikey": SERVICE_KEY,
+        "Authorization": f"Bearer {SERVICE_KEY}",
+        "Content-Type": "application/json",
+        "Prefer": "return=representation",
+    },
+)
+with urllib.request.urlopen(req, timeout=15) as r:
+    out = json.loads(r.read().decode())
+
+print(f"PATCH OK. blocks: {len(out[0]['blocks'])}, steps: {sum(1 for b in out[0]['blocks'] if b['type']=='step')}")

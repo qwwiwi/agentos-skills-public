@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Сценарий рилса: PDF → Markdown — Edge Lab</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --el-bg: #141416;
+  --el-text: #ffffff;
+  --el-text-muted: #a1a1aa;
+  --el-card-bg: rgba(255,255,255,0.06);
+  --el-card-border: rgba(255,255,255,0.1);
+  --el-accent: #c9a44a;
+  --el-accent-dim: rgba(201,164,74,0.15);
+  --el-code-bg: rgba(255,255,255,0.08);
+  --el-divider: rgba(255,255,255,0.1);
+  --el-error: #ef4444;
+  --el-success: #22c55e;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--el-bg); color:var(--el-text); font-family:'Inter',sans-serif; line-height:1.7; -webkit-font-smoothing:antialiased; }
+.container { max-width:720px; margin:0 auto; padding:2rem 1.5rem 4rem; }
+.lesson-header { text-align:center; margin-bottom:2.5rem; padding-bottom:2rem; border-bottom:1px solid var(--el-divider); }
+.lesson-badge { display:inline-block; background:var(--el-accent-dim); color:var(--el-accent); font-size:0.75rem; font-weight:600; text-transform:uppercase; letter-spacing:0.1em; padding:0.4rem 1rem; border-radius:100px; margin-bottom:1rem; }
+.lesson-title { font-family:'Playfair Display',Georgia,serif; font-size:2rem; font-weight:700; line-height:1.2; margin-bottom:0.75rem; }
+.lesson-subtitle { color:var(--el-text-muted); font-size:1rem; }
+.meta-row { display:flex; justify-content:center; gap:2rem; margin-top:1.25rem; flex-wrap:wrap; }
+.meta-item { display:flex; align-items:center; gap:0.4rem; color:var(--el-text-muted); font-size:0.85rem; }
+.meta-icon { color:var(--el-accent); font-size:1rem; }
+.section { margin-bottom:2.5rem; }
+.section-title { font-family:'Playfair Display',Georgia,serif; font-size:1.4rem; font-weight:600; margin-bottom:1rem; padding-bottom:0.75rem; border-bottom:1px solid var(--el-divider); }
+.section-num { color:var(--el-accent); margin-right:0.3rem; }
+.quote-block { background:var(--el-card-bg); border-left:3px solid var(--el-accent); border-radius:0 0.75rem 0.75rem 0; padding:1.25rem 1.5rem; margin:1rem 0; font-size:1.05rem; line-height:1.8; }
+pre { background:var(--el-code-bg); border:1px solid var(--el-card-border); border-radius:0.75rem; padding:1rem 1.25rem; overflow-x:auto; margin:1rem 0; }
+code { font-family:'SF Mono','Fira Code',monospace; font-size:0.85rem; color:#e4e4e7; }
+.tip-card { background:var(--el-accent-dim); border:1px solid rgba(201,164,74,0.3); border-radius:1rem; padding:1.25rem 1.5rem; margin:1.5rem 0; }
+.tip-label { color:var(--el-accent); font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:0.5rem; }
+.cta-card { background:linear-gradient(135deg, rgba(201,164,74,0.15), rgba(201,164,74,0.05)); border:1px solid rgba(201,164,74,0.3); border-radius:1rem; padding:1.5rem; text-align:center; margin:2rem 0; }
+.cta-word { font-family:'Playfair Display',Georgia,serif; font-size:2rem; font-weight:700; color:var(--el-accent); margin:0.75rem 0; }
+.timeline { position:relative; padding-left:2rem; }
+.timeline::before { content:''; position:absolute; left:0.5rem; top:0; bottom:0; width:2px; background:var(--el-accent); opacity:0.3; }
+.timeline-item { position:relative; margin-bottom:2rem; }
+.timeline-dot { position:absolute; left:-1.65rem; top:0.35rem; width:12px; height:12px; border-radius:50%; background:var(--el-accent); border:2px solid var(--el-bg); }
+.timeline-header { display:flex; align-items:center; gap:0.75rem; margin-bottom:0.75rem; flex-wrap:wrap; }
+.timeline-label { font-weight:600; font-size:1.1rem; }
+.timeline-badge { font-size:0.7rem; font-weight:600; text-transform:uppercase; letter-spacing:0.08em; padding:0.2rem 0.6rem; border-radius:100px; }
+.badge-hook { background:rgba(239,68,68,0.15); color:#ef4444; }
+.badge-problem { background:rgba(249,115,22,0.15); color:#f97316; }
+.badge-solution { background:rgba(34,197,94,0.15); color:#22c55e; }
+.badge-proof { background:rgba(59,130,246,0.15); color:#3b82f6; }
+.badge-howto { background:rgba(168,85,247,0.15); color:#a855f7; }
+.badge-backup { background:rgba(161,161,170,0.15); color:#a1a1aa; }
+.badge-cta { background:var(--el-accent-dim); color:var(--el-accent); }
+.summary-card { background:var(--el-card-bg); border:1px solid var(--el-card-border); border-radius:1rem; padding:1.5rem; margin:1.5rem 0; }
+.summary-title { font-family:'Playfair Display',Georgia,serif; font-size:1.2rem; font-weight:600; margin-bottom:1rem; }
+.summary-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:0.75rem; }
+.summary-item { display:flex; flex-direction:column; }
+.summary-label { color:var(--el-text-muted); font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em; }
+.summary-value { font-weight:600; font-size:1.1rem; }
+.summary-value-big { font-weight:700; font-size:1.4rem; color:var(--el-accent); }
+.ref-link { color:var(--el-accent); text-decoration:none; border-bottom:1px solid rgba(201,164,74,0.3); }
+.ref-link:hover { border-bottom-color:var(--el-accent); }
+
+.teleprompter { background:rgba(59,130,246,0.08); border:1px solid rgba(59,130,246,0.2); border-radius:1rem; padding:1.5rem 1.75rem; margin:1.5rem 0; font-size:1.15rem; line-height:2; }
+.teleprompter p { margin-bottom:1rem; }
+.teleprompter p:last-child { margin-bottom:0; }
+.teleprompter .pause { display:block; color:rgba(59,130,246,0.5); font-size:0.75rem; font-weight:600; text-transform:uppercase; letter-spacing:0.1em; margin:0.75rem 0; }
+
+@media (max-width:480px) {
+  .container { padding:1rem 1rem 3rem; }
+  .lesson-title { font-size:1.5rem; }
+  .section-title { font-size:1.25rem; }
+  .summary-grid { grid-template-columns:1fr 1fr; }
+  .meta-row { gap:1rem; }
+  .teleprompter { font-size:1.05rem; padding:1.25rem; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="lesson-header">
+    <div class="lesson-badge">Сценарий рилса</div>
+    <h1 class="lesson-title">PDF &#8594; Markdown для Claude</h1>
+    <p class="lesson-subtitle">Адаптация вирусного рилса на русский язык</p>
+    <div class="meta-row">
+      <div class="meta-item"><span class="meta-icon">&#9201;</span> ~50 сек</div>
+      <div class="meta-item"><span class="meta-icon">&#127919;</span> Кодовое слово: КЛОД</div>
+      <div class="meta-item"><span class="meta-icon">&#127916;</span> Talking head + терминал</div>
+    </div>
+  </div>
+
+  <!-- REFERENCE -->
+  <div class="section">
+    <h2 class="section-title"><span class="section-num">&#9670;</span> Референс-оригинал</h2>
+    <p style="color:var(--el-text-muted); margin-bottom:1rem;">Сценарий адаптирован с рилса <strong style="color:var(--el-text);">@keshavsuki</strong> — англоязычный AI-контент-криейтор. Рилс залетел, формула рабочая.</p>
+    
+    <div class="summary-card" style="margin-top:1rem;">
+      <div class="summary-grid">
+        <div class="summary-item">
+          <span class="summary-label">Автор</span>
+          <span class="summary-value">@keshavsuki</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Ссылка</span>
+          <span class="summary-value"><a class="ref-link" href="https://www.instagram.com/reel/DWRXImHDiXf/">Открыть рилс</a></span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Длительность</span>
+          <span class="summary-value">52 сек</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="summary-card">
+      <div class="summary-title">Метрики оригинала</div>
+      <div class="summary-grid">
+        <div class="summary-item">
+          <span class="summary-label">Просмотры</span>
+          <span class="summary-value-big">108 635</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Комментарии</span>
+          <span class="summary-value-big">2 865</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Shares</span>
+          <span class="summary-value-big">1 444</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Лайки</span>
+          <span class="summary-value">2 021</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Кодовое слово</span>
+          <span class="summary-value">PDF</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">ER</span>
+          <span class="summary-value">5.8%</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="tip-card">
+      <div class="tip-label">Почему этот рилс залетел</div>
+      <p style="font-size:0.95rem; line-height:1.7; color:var(--el-text-muted);">
+        <strong style="color:var(--el-text);">Hook = запрет</strong> — «Stop doing X» цепляет сильнее чем «Try doing X».<br>
+        <strong style="color:var(--el-text);">Одна узкая тема</strong> — PDF &#8594; Markdown, не «5 tips for Claude».<br>
+        <strong style="color:var(--el-text);">Код на экране</strong> — talking head + реальные команды в терминале.<br>
+        <strong style="color:var(--el-text);">Ритм</strong> — короткие предложения, каждое 2–3 сек.<br>
+        <strong style="color:var(--el-text);">CTA с кодовым словом</strong> — «Comment PDF» &#8594; 2 865 комментариев.
+      </p>
+    </div>
+  </div>
+
+  <!-- TELEPROMPTER -->
+  <div class="section">
+    <h2 class="section-title"><span class="section-num">&#9670;</span> Текст для телесуфлёра</h2>
+    <div class="teleprompter">
+      <p>Хватит загружать PDF в Claude. Сначала конвертируй в Markdown. Одна команда — и всё.</p>
+
+      <span class="pause">— пауза —</span>
+
+      <p>Когда ты загружаешь PDF, Claude сначала парсит визуальную разметку. Колонки, хедеры, футеры, таблицы в виде картинок. По факту Claude пытается извлечь смысл из документа, который сделан для печати, а не для языковой модели.</p>
+
+      <span class="pause">— пауза —</span>
+
+      <p>Markdown — другая история. Это чистая семантика. Тот самый формат, в котором Claude уже думает.</p>
+
+      <p>Решётка — заголовок. Две звёздочки — жирный. Дефис — пункт списка.</p>
+
+      <p>Никакой вёрстки. Никакого визуального мусора. Только смысл.</p>
+
+      <span class="pause">— пауза —</span>
+
+      <p>Один и тот же документ. Markdown-версия тратит меньше токенов, и Claude понимает её значительно лучше.</p>
+
+      <span class="pause">— пауза —</span>
+
+      <p>Ставишь Pandoc одной строкой. Конвертируешь любой PDF. Готово. Файл можно скармливать Claude.</p>
+
+      <span class="pause">— пауза —</span>
+
+      <p>Если нет Pandoc — Claude сам может сконвертировать. В любом случае ты даёшь ему правильный формат.</p>
+
+      <span class="pause">— пауза —</span>
+
+      <p>Напиши КЛОД в комментариях — отправлю полный гайд по конвертации.</p>
+    </div>
+  </div>
+
+  <!-- TIMELINE -->
+  <div class="section">
+    <h2 class="section-title"><span class="section-num">&#9670;</span> Разбивка по секундам</h2>
+    
+    <div class="timeline">
+      
+      <div class="timeline-item">
+        <div class="timeline-dot"></div>
+        <div class="timeline-header">
+          <span class="timeline-label">HOOK</span>
+          <span class="timeline-badge badge-hook">0–3 сек</span>
+        </div>
+        <div class="quote-block">
+          Хватит загружать PDF в Claude. Сначала конвертируй в Markdown. Одна команда — и всё.
+        </div>
+      </div>
+
+      <div class="timeline-item">
+        <div class="timeline-dot"></div>
+        <div class="timeline-header">
+          <span class="timeline-label">ПРОБЛЕМА</span>
+          <span class="timeline-badge badge-problem">3–12 сек</span>
+        </div>
+        <div class="quote-block">
+          Когда ты загружаешь PDF, Claude сначала парсит визуальную разметку. Колонки, хедеры, футеры, таблицы в виде картинок. По факту Claude пытается извлечь смысл из документа, который сделан для печати, а не для языковой модели.
+        </div>
+      </div>
+
+      <div class="timeline-item">
+        <div class="timeline-dot"></div>
+        <div class="timeline-header">
+          <span class="timeline-label">РЕШЕНИЕ</span>
+          <span class="timeline-badge badge-solution">12–25 сек</span>
+        </div>
+        <div class="quote-block">
+          Markdown — другая история. Это чистая семантика. Тот самый формат, в котором Claude уже думает. Решётка — заголовок. Две звёздочки — жирный. Дефис — пункт списка. Никакой вёрстки. Никакого визуального мусора. Только смысл.
+        </div>
+        <div class="tip-card">
+          <div class="tip-label">На экране</div>
+          Показать Markdown-разметку: <code># Заголовок</code>, <code>**жирный**</code>, <code>- список</code> — каждый появляется синхронно с речью.
+        </div>
+      </div>
+
+      <div class="timeline-item">
+        <div class="timeline-dot"></div>
+        <div class="timeline-header">
+          <span class="timeline-label">ДОКАЗАТЕЛЬСТВО</span>
+          <span class="timeline-badge badge-proof">25–30 сек</span>
+        </div>
+        <div class="quote-block">
+          Один и тот же документ. Markdown-версия тратит меньше токенов, и Claude понимает её значительно лучше.
+        </div>
+        <div class="tip-card">
+          <div class="tip-label">На экране</div>
+          Сплит-скрин: слева PDF (мусор), справа Markdown (чисто). Показать разницу в токенах.
+        </div>
+      </div>
+
+      <div class="timeline-item">
+        <div class="timeline-dot"></div>
+        <div class="timeline-header">
+          <span class="timeline-label">ИНСТРУКЦИЯ</span>
+          <span class="timeline-badge badge-howto">30–42 сек</span>
+        </div>
+        <div class="quote-block">
+          Ставишь Pandoc одной строкой. Конвертируешь любой PDF. Готово.
+        </div>
+        <pre><code>brew install pandoc</code></pre>
+        <pre><code>pandoc document.pdf -o document.md</code></pre>
+        <div class="tip-card">
+          <div class="tip-label">На экране</div>
+          Терминал: набираешь команды в реальном времени, показываешь результат.
+        </div>
+      </div>
+
+      <div class="timeline-item">
+        <div class="timeline-dot"></div>
+        <div class="timeline-header">
+          <span class="timeline-label">BACKUP</span>
+          <span class="timeline-badge badge-backup">42–46 сек</span>
+        </div>
+        <div class="quote-block">
+          Если нет Pandoc — Claude сам может сконвертировать. В любом случае ты даёшь ему правильный формат.
+        </div>
+      </div>
+
+      <div class="timeline-item">
+        <div class="timeline-dot"></div>
+        <div class="timeline-header">
+          <span class="timeline-label">CTA</span>
+          <span class="timeline-badge badge-cta">46–50 сек</span>
+        </div>
+        <div class="quote-block">
+          Напиши <strong>КЛОД</strong> в комментариях — отправлю полный гайд по конвертации.
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- FORMULA -->
+  <div class="section">
+    <h2 class="section-title"><span class="section-num">&#9670;</span> Формула сценария</h2>
+    <div class="summary-card">
+      <div class="summary-title">Структура, которая работает</div>
+      <p style="color:var(--el-text-muted); font-size:0.95rem; line-height:1.8;">
+        <strong style="color:var(--el-error);">STOP doing X</strong> &#8594; почему это неправильно &#8594;
+        <strong style="color:var(--el-success);">вот правильный способ</strong> &#8594; одна команда для решения &#8594;
+        <strong style="color:var(--el-accent);">Comment WORD</strong> для полного гайда
+      </p>
+    </div>
+  </div>
+
+  <!-- CTA -->
+  <div class="cta-card">
+    <div class="tip-label">Кодовое слово для рилса</div>
+    <div class="cta-word">КЛОД</div>
+    <p style="color:var(--el-text-muted); font-size:0.9rem;">Уже работает в ChatPlace — топ-2 по конверсии (46 подписчиков)</p>
+  </div>
+
+</div>
+</body>
+</html>

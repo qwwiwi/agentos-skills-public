@@ -1,0 +1,130 @@
+"""Rewrite '<URL_ID>' bonus block in page.tsx from /tmp/lesson<N>_steps.py.
+
+Usage:
+  cp this file to /tmp/update_mock_l<N>.py
+  Edit:
+    - Change "lesson<N>_steps" import below
+    - Change m_start = "  '<URL_ID>': {" (e.g., "  '11': {")
+    - Change m_end   = "  '<URL_ID+1>': {" (e.g., "  '12': {")
+      OR end-of-object marker if last bonus.
+"""
+import re, sys
+sys.path.insert(0, '/tmp')
+from lesson<N>_steps import STEPS, OUTCOME, SKILLS, TIMECODES, PROMPTS, REPOS, TITLE, DURATION, DESCRIPTION
+from pathlib import Path
+
+p = Path('~/projects/intensive-agentos-platform/apps/web/app/intensive/lesson/[id]/page.tsx')
+s = p.read_text()
+
+
+def js_str(v: str) -> str:
+    """JS-quote string with proper escaping for backslash, single-quote, newline."""
+    return "'" + v.replace('\\', '\\\\').replace("'", "\\'").replace('\n', '\\n') + "'"
+
+
+# Build steps[] TS
+lines = ['    steps: [']
+for num, title, goal, body, cmd, cmd_title, resources in STEPS:
+    lines.append('      {')
+    lines.append(f'        num: {num},')
+    lines.append(f'        title: {js_str(title)},')
+    lines.append(f'        goal: {js_str(goal)},')
+    lines.append(f'        body: {js_str(body)},')
+    if resources:
+        lines.append('        resources: [')
+        for r in resources:
+            kind = f", kind: {js_str(r['kind'])}" if r.get('kind') else ''
+            lines.append(f'          {{ label: {js_str(r["label"])}, href: {js_str(r["href"])}{kind} }},')
+        lines.append('        ],')
+    if cmd:
+        lines.append(f'        command: {js_str(cmd)},')
+        if cmd_title:
+            lines.append(f'        commandTitle: {js_str(cmd_title)},')
+        lines.append("        commandLang: 'bash',")
+    lines.append('      },')
+lines.append('    ],')
+new_steps = '\n'.join(lines)
+
+# Build outcome[]
+out_lines = ['    outcome: [']
+for o in OUTCOME:
+    out_lines.append(f'      {js_str(o)},')
+out_lines.append('    ],')
+new_outcome = '\n'.join(out_lines)
+
+# Build timecodes[]
+tc_lines = ['    timecodes: [']
+for ts, label in TIMECODES:
+    tc_lines.append(f'      {{ ts: {js_str(ts)}, label: {js_str(label)} }},')
+tc_lines.append('    ],')
+new_tc = '\n'.join(tc_lines)
+
+# Build prompts[]
+pr_lines = ['    prompts: [']
+for pid, label, text, featured in PROMPTS:
+    pr_lines.append(f'      {{ id: {pid}, label: {js_str(label)}, text: {js_str(text)}, featured: {"true" if featured else "false"} }},')
+pr_lines.append('    ],')
+new_prompts = '\n'.join(pr_lines)
+
+# Build repos[]
+rp_lines = ['    repos: [']
+for slug, desc in REPOS:
+    rp_lines.append(f'      {{ slug: {js_str(slug)}, desc: {js_str(desc)} }},')
+rp_lines.append('    ],')
+new_repos = '\n'.join(rp_lines)
+
+# Build skills[] (single-line)
+new_skills = '    skills: [' + ', '.join(js_str(x) for x in SKILLS) + '],'
+
+
+def sub_lit(pattern, repl_str, src):
+    """re.sub with LITERAL replacement (no backref/escape processing).
+
+    CRITICAL: re.sub interprets `\\n` in repl as newline character. Lambda bypasses this.
+    See references/06-pitfalls.md Pitfall #1.
+    """
+    return re.sub(pattern, lambda m: repl_str, src, count=1, flags=re.MULTILINE)
+
+
+# === EDIT THESE TWO STRINGS for your bonus ===
+# m_start: opening of YOUR bonus block in BONUS_LESSONS
+# m_end:   opening of NEXT bonus block (or '};' if last)
+m_start_marker = "  '<URL_ID>': {"     # e.g., "  '11': {"
+m_end_marker   = "  '<URL_ID+1>': {"   # e.g., "  '12': {"
+
+m_start = s.find(m_start_marker)
+m_end = s.find(m_end_marker, m_start)
+assert m_start > 0 and m_end > m_start, f"Cannot locate bonus block boundaries: {m_start_marker} → {m_end_marker}"
+block = s[m_start:m_end]
+
+block = sub_lit(r"^    title: '.*?',\n", f"    title: {js_str(TITLE)},\n", block)
+block = sub_lit(r"^    duration: '.*?',\n", f"    duration: {js_str(DURATION)},\n", block)
+block = sub_lit(r"^    description: '.*?',\n", f"    description: {js_str(DESCRIPTION)},\n", block)
+block = sub_lit(r"^    timecodes: \[\n(?:.*\n)*?    \],\n", new_tc + '\n', block)
+block = sub_lit(r"^    prompts: \[\n(?:.*\n)*?    \],\n", new_prompts + '\n', block)
+block = sub_lit(r"^    repos: \[.*?\],\n", new_repos + '\n', block)
+block = sub_lit(r"^    skills: \[.*?\],\n", new_skills + '\n', block)
+
+# Insert outcome[] if absent (first time bonus gets steps), else replace
+if 'outcome: [' not in block:
+    block = re.sub(
+        r"^(    description: .*?,\n)",
+        lambda m: m.group(1) + new_outcome + '\n',
+        block, count=1, flags=re.MULTILINE | re.DOTALL,
+    )
+else:
+    block = sub_lit(r"^    outcome: \[\n(?:.*\n)*?    \],\n", new_outcome + '\n', block)
+
+# Insert steps[] if absent, else replace
+if 'steps: [' not in block:
+    block = re.sub(
+        r"^(    skills: \[.*?\],\n)",
+        lambda m: m.group(1) + new_steps + '\n',
+        block, count=1, flags=re.MULTILINE,
+    )
+else:
+    block = sub_lit(r"^    steps: \[\n(?:.*\n)*?    \],\n", new_steps + '\n', block)
+
+s = s[:m_start] + block + s[m_end:]
+p.write_text(s)
+print(f"Updated mock l<N>: {len(STEPS)} steps, {len(OUTCOME)} outcome, {len(SKILLS)} skills, {len(TIMECODES)} timecodes")

@@ -1,0 +1,82 @@
+[
+  {
+    "query": "давай переделаем бэкенд edgelab — сейчас это FastAPI + SQLite на coder-agent, надо мигрировать всё на Supabase PostgREST с RLS, включая auth_tokens, profiles, content_items, legacy_courses. Supabase URL в ~/.secrets/supabase.env. 51 content item уже в Supabase частично, остальное в SQLite. Нужна двойная запись на переход, тесты, бэкап, откат если что",
+    "should_trigger": true
+  },
+  {
+    "query": "делаем миграцию на Cognee graph RAG вместо текущего векторного поиска. Сейчас у нас OpenViking с плоскими эмбеддингами, хотим knowledge graph с entity extraction. Репо cognee-ai/cognee, ~30k звёзд. Надо план переноса данных и refactor поискового api",
+    "should_trigger": true
+  },
+  {
+    "query": "перепиши нашего DCA бота под новый API биржи — текущий на ccxt 3.x, хотим 4.x с типизацией + добавить поддержку Bybit рядом с Binance. /home/openclaw/dca-bot на coder-agent, ~800 строк python. Тесты есть, но на старой версии ccxt",
+    "should_trigger": true
+  },
+  {
+    "query": "крупный рефакторинг gateway.py — он разросся до 3200 строк, хочу разбить по модулям (telegram, ov, llm, session, tools). Идеи: gateway/core.py как entry, gateway/handlers/ под обработчики, gateway/integrations/ под внешние апи. Нужен граф зависимостей и план миграции без потери функциональности",
+    "should_trigger": true
+  },
+  {
+    "query": "надо переделать онбординг в iel-launch-bot — сейчас 40 вопросов подряд, хотим адаптивный флоу с ветвлением по ответам, паузой, сохранением в Supabase onboarding_sessions. /home/openclaw/iel-launch-bot/app.py. Фича большая, затрагивает бота, API gunicorn :8090 и дашборд",
+    "should_trigger": true
+  },
+  {
+    "query": "хочу собрать marketplace в EdgeHub: каталог агентов от участников EdgeLab, страница агента, install-кнопка, админка модерации. Frontend Next.js 15 standalone в /var/www/edgelab. Надо DB schema, API endpoints, UI компоненты, RLS политики, полная новая фича на 2-3 недели",
+    "should_trigger": true
+  },
+  {
+    "query": "давай перепишем авторизацию в платформе — сейчас один долгоживущий bearer token в auth_tokens, хотим JWT с refresh, ротацией, device binding. Затронет telegram-bot-edgelab (выдача), platform-edgelab (валидация), api/platform/ (миграция всех endpoint'ов), документация EdgeHub",
+    "should_trigger": true
+  },
+  {
+    "query": "полная переработка системы уведомлений в EdgeHub: сейчас popover дёргает /api/notifications каждые 30 сек, надо перейти на push через Supabase Realtime + Telegram fallback для офлайн. Затронет frontend, backend и iel-launch-bot. Пропиши план с тестами и staging rollout",
+    "should_trigger": true
+  },
+  {
+    "query": "через лупкодинг давай сделаем EdgeHub Phase 3 — is_solution на вопросы, markdown с syntax highlighting в постах, real-time notifications (см. предыдущий тикет), привязка к Telegram inbox. Фронт + бэк + миграция схемы. Прим. 15 файлов backend, 20+ frontend",
+    "should_trigger": true
+  },
+  {
+    "query": "переезд <your-domain> с собственной Python-сборки на Docusaurus v3. 40 md-файлов, image_registry, Caddy конфиг, авто-билд на coder-agent. Надо сохранить все URL (редиректы), cover-изображения, callouts, TOV текст. Большая миграция, хочу сделать через наш loop-coding скилл",
+    "should_trigger": true
+  },
+  {
+    "query": "поправь опечатку в README edgelab-install — написано 'Node.js 21', должно быть 'Node.js 22'. Одна строчка",
+    "should_trigger": false
+  },
+  {
+    "query": "докинь structured logging в 6 ручек iel-launch-bot/app.py — замени logger.info строки на logger.info(..., extra={...}) с request_id и user_id. Только логи, никакой бизнес-логики. 6 функций, знаю какие",
+    "should_trigger": false
+  },
+  {
+    "query": "переименуй profileData -> profile по всему фронту platform-edgelab/app — это ~8 файлов, но только rename, без поведенческих изменений. Проверь tsc и тесты",
+    "should_trigger": false
+  },
+  {
+    "query": "обсудим варианты кэширования /api/sections — у нас уже 60сек inmem, может Redis? Какие плюсы-минусы? Только разговор, не код",
+    "should_trigger": false
+  },
+  {
+    "query": "сделай ревью PR #42 в platform-edgelab — там 3 файла, средний, посмотри на логику и стиль. Код-ревью, не имплементация",
+    "should_trigger": false
+  },
+  {
+    "query": "обнови @supabase/supabase-js 2.43.1 -> 2.45.x во frontend и поправь типы там где компилер ругается. Никаких новых фич — только lockfile, bump и подправить сигнатуры",
+    "should_trigger": false
+  },
+  {
+    "query": "почини 12 битых ссылок в guides/ — есть список в /tmp/broken-links.txt (путь -> 404). Только md-файлы, без изменений Caddy или build скриптов",
+    "should_trigger": false
+  },
+  {
+    "query": "в gateway.py функция _push_group_message_to_ov — у параметра chat_id нет type hint, добавь int. Проверь mypy не ругается",
+    "should_trigger": false
+  },
+  {
+    "query": "объясни пожалуйста как работает decide_reply_mode в gateway — читаю код, не понимаю логику выбора ответа в групповых чатах. Комментария или схемы хватит",
+    "should_trigger": false
+  },
+  {
+    "query": "накидай 5-7 вариантов названия для нового Instagram reels-канала по AI-агентам под вайб 'Записок AI-энтузиаста'. Контент, не код",
+    "should_trigger": false
+  }
+]

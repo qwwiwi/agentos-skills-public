@@ -1,0 +1,152 @@
+# Orgrimmar Infrastructure Inventory
+# Server Doctor -- adapted for our setup
+# Last updated: 2026-03-24
+
+hosts:
+  mac-mini:
+    hostname: your-mac-mini
+    tailscale_ip: <your-server-ip>
+    os: macOS (Darwin arm64)
+    role: primary coordination hub
+    user: your-user
+    access: local shell / tailscale ssh
+    services:
+      - name: agent-gateway
+        type: agent-gateway
+        agent: coordinator-agent, marketer-agent
+        user: your-user
+        pid_check: "pgrep -f gateway.py"
+        log: /tmp/agent-gateway.log
+        restart: "launchctl kickstart -k gui/$(id -u)/ai.youragent.gateway"
+        config: ~/.claude/gateway/config.json
+        workspace_coordinator: ~/.claude
+        workspace_marketer: ~/.claude
+      - name: chromium-headless
+        type: browser
+        port: 9222
+        pid_check: "pgrep -f chromium"
+        profile: ~/.chromium-profile/
+      - name: firebase-sse-listener
+        type: background-script
+        script: firebase-sse-listener.sh
+        output: firebase-mirror/
+    cron_jobs:
+      - "*/5 * * * * heartbeat"
+      - "*/2 * * * * obsidian sync"
+      - "*/30 * * * * qmd embed"
+
+  coder-agent-vps:
+    hostname: coder-agent
+    tailscale_ip: <your-server-ip>
+    os: Ubuntu LTS
+    role: code agent + EdgeLab API
+    access: ssh root@<your-server-ip>
+    services:
+      - name: coder-agent-gateway
+        type: agent-gateway
+        agent: coder-agent
+        user: openclaw
+        pid_check: "pgrep -u openclaw -f gateway.py"
+        log: /tmp/agent-gateway.log
+        restart: "systemctl restart coder-agent-gateway"
+        workspace: /home/openclaw/.claude-lab/coder-agent/.claude
+        known_issues:
+          - "duplicate gateway under batrak user (PID conflict)"
+          - "systemd user services unavailable error"
+      - name: edgelab-api
+        type: gunicorn+uvicorn
+        user: root
+        service: edgelab-api.service
+        port: 8090
+        workdir: /home/openclaw/iel-launch-bot
+        db: Supabase (bot.db deprecated)
+        restart: "systemctl restart edgelab-api"
+        log: "journalctl -u edgelab-api -f"
+        known_issues:
+          - "port 8090 Address already in use (old uvicorn process)"
+      - name: edgelab-bot
+        type: telegram-bot
+        bot_username: "@EdgeLabSupportBot"
+        workdir: /home/openclaw/iel-launch-bot
+    nginx:
+      domain: <your-domain>
+      config: /etc/nginx/sites-enabled/api-edgelab
+      rate_limit: "30r/s burst=50"
+
+  reviewer-agent-vps:
+    hostname: reviewer-agent
+    tailscale_ip: <your-server-ip>
+    os: Ubuntu LTS
+    role: monitoring agent
+    access: ssh root@<your-server-ip>
+    services:
+      - name: reviewer-agent-gateway
+        type: agent-gateway
+        agent: reviewer-agent
+        user: openclaw
+
+  monitor-agent-vps:
+    hostname: monitor-agent
+    tailscale_ip: <your-server-ip>
+    os: Ubuntu LTS
+    role: auxiliary services
+    access: ssh root@<your-server-ip>
+    services:
+      - name: monitor-agent-gateway
+        type: agent-gateway
+        agent: monitor-agent
+        user: openclaw
+      - name: subscription-tracker
+        type: telegram-bot
+        bot_username: "@Chatplaceedgelabbot"
+        user: openclaw
+        service: subscription-tracker.service
+        workdir: /home/openclaw/subscription-tracker
+        db: /home/openclaw/subscription-tracker/data/tracker.db
+        log: /home/openclaw/subscription-tracker/data/bot.log
+        restart: "systemctl restart subscription-tracker"
+        venv: /home/openclaw/subscription-tracker/venv/
+
+agents:
+  coordinator-agent:
+    host: mac-mini
+    model: anthropic/claude-opus-4-6
+    role: coordinator
+    heartbeat: "*/55 min"
+  coder-agent:
+    host: coder-agent-vps
+    model: anthropic/claude-opus-4-6
+    role: code agent
+  reviewer-agent:
+    host: reviewer-agent-vps
+    model: anthropic/claude-opus-4-6
+    role: monitoring
+  monitor-agent:
+    host: monitor-agent-vps
+    model: anthropic/claude-opus-4-6
+    role: auxiliary
+  marketer-agent:
+    host: mac-mini
+    model: anthropic/claude-opus-4-6
+    role: content marketing
+
+firebase:
+  url: <your-firebase-url>
+  cli: ~/.local/bin/orgbus
+  paths:
+    agents: agents/
+    tasks: tasks/
+    messages: messages/inbox/
+    learnings: learnings/
+
+external_services:
+  - name: EdgeLab Platform
+    url: https://<your-domain>
+    api: https://<your-domain>
+    frontend_host: <your-server-ip>
+    frontend_path: /var/www/edgelab/
+  - name: Kinescope
+    api: https://uploader.kinescope.io/v2/video
+    project: 760fd3f6-f153-46a5-a73d-4d828fe6eb70
+  - name: CloudPayments
+    webhook_port: 8080
