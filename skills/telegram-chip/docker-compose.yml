@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  # MCP Server - for Claude/Cursor integration via stdio
+  telegram-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: telegram-mcp
+    env_file:
+      - .env
+    # Keep stdin open and allocate a pseudo-TTY, crucial for stdio MCP servers
+    stdin_open: true
+    tty: true
+    # volumes:
+    #   - ./telegram_sessions:/app
+    restart: unless-stopped
+
+  # HTTP API - for local scripts via REST endpoints
+  telegram-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: telegram-api
+    env_file:
+      - .env
+    ports:
+      - "8080:8080"
+    # volumes:
+    #   - ./telegram_sessions:/app
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s 
