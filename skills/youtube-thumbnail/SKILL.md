@@ -33,6 +33,29 @@ Working dir for a job (frames, cutouts, scenes, outputs): keep it under the skil
 Likeness tip: GPT needs **4+ close, frontal face refs** to actually look like the person.
 "Play with the font" → use **B or C** so the font is yours, not the model's.
 
+## Recommended path — examples + photos → GPT (reliable style match)
+
+The most reliable way to hit a specific cover style (e.g. solid dark bg + an accent asterisk/spark + a
+bright highlight box on a key word) is to **show gpt-image the style with example covers** instead of
+describing it in words. Feed up to 5 references:
+
+- **Two face photos** of the person (close frontal crops — see step 1 / 2b).
+- **Two reference covers** in the target style — keep your style examples in `references/refcovers/`.
+- **One brand logo** used on the cover.
+
+Prompt: *"copy the EXACT visual style of the reference cover images (background, accent graphic, terminal
+texture, heavy headline with a bright highlight box on the key word, brand label); use the person from the
+face photos — real face, shown LARGE and close-up on the right; headline `<HEADLINE>` with `<KEYWORD>` in a
+highlight box; render the text exactly as written; high contrast, no watermark."* Then finalize (step 5).
+
+Feeding examples is what makes the model reproduce the box style AND keep the text crisp. For fully
+**deterministic text** instead, use `scripts/yt-boxes.mjs` — solid dark bg, markup `[[word]]`=accent box /
+`<<word>>`=white box / plain=white text, real face cutout, brand icon:
+```bash
+node scripts/yt-boxes.mjs --l1 "[[KEYWORD]] REST" --l2 "SECOND LINE" --eyebrow "BRAND" \
+  --face /abs/cutout.png --icon /abs/logo.png --font inter --out /abs/out.png
+```
+
 ## Pipeline
 
 ### 1. Face from video
@@ -86,7 +109,9 @@ gpt-image outputs ~1536×1024 → crop/scale to exactly 1920×1080:
 ```bash
 ffmpeg -y -i in.png -vf "scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080" out.png
 ```
-QA: downscale to ~360px wide and confirm the headline is still legible.
+QA: `ffmpeg -y -i out.png -vf scale=360:-1 qa-360.png` — pass only if the full headline is spelled exactly,
+the key word sits inside its highlight box, and every word is readable at small size. If not: regenerate
+once, then fall back to `scripts/yt-boxes.mjs` for exact text.
 
 ## Setup (once)
 ```bash
