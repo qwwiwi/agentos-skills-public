@@ -1,0 +1,19 @@
+{
+  "_schema": "YouTube channel base for the yt-research radar. Each item: handle (no @), name, url, channel_id, subs, lang, niche, cadence, note, added. Feed handles to yt_search.py --handles.",
+  "_note": "Template — populate with your own niche's channels. Two examples below; replace them.",
+  "_target": 50,
+  "channels": [
+    {
+      "handle": "TechWithTim", "name": "Tech With Tim", "channel_id": "UC4JX40jDee_tINbkjycV4Sg",
+      "url": "https://www.youtube.com/@TechWithTim", "subs": null, "lang": "en",
+      "niche": "AI coding workflows, building AI agents — hands-on dev tutorials",
+      "cadence": "", "added": "", "note": "example — replace"
+    },
+    {
+      "handle": "TraversyMedia", "name": "Traversy Media", "channel_id": "UC29ju8bIPH5as8OGnQzwJyA",
+      "url": "https://www.youtube.com/@TraversyMedia", "subs": null, "lang": "en",
+      "niche": "Dev crash courses + opinions on AI for developers",
+      "cadence": "", "added": "", "note": "example — replace"
+    }
+  ]
+}

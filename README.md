@@ -22,7 +22,7 @@ Production-tested скиллы от команды EdgeLab — для кодин
 
 | Категория | Скиллов | Что внутри |
 |-----------|---------|------------|
-| **Ресерч** | 8 | perplexity, twitter, transcript, markdown-new, groq-voice, reel-radar, chat-archive, topic-monitor |
+| **Ресерч** | 9 | perplexity, twitter, transcript, markdown-new, groq-voice, reel-radar, chat-archive, topic-monitor, yt-research |
 | **Кодинг** | 7 | loop-coding, fast-loop-coding, mcp-builder, mcp-api-build, cross-review, dev-pipeline, server-doctor |
 | **Контент** | 4 | content-engine, landing-page-copywriter, plf-walker, present |
 | **Соцсети** | 5 | instagram-superpower, reels, youtube-producer, threads-content, twitter (создание) |
