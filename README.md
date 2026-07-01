@@ -25,7 +25,7 @@ Production-tested скиллы от команды EdgeLab — для кодин
 | **Ресерч** | 9 | perplexity, twitter, transcript, markdown-new, groq-voice, reel-radar, chat-archive, topic-monitor, yt-research |
 | **Кодинг** | 7 | loop-coding, fast-loop-coding, mcp-builder, mcp-api-build, cross-review, dev-pipeline, server-doctor |
 | **Контент** | 4 | content-engine, landing-page-copywriter, plf-walker, present |
-| **Соцсети** | 6 | instagram-superpower, reels, youtube-producer, youtube-thumbnail, threads-content, twitter (создание) |
+| **Соцсети** | 7 | instagram-superpower, carousel-instagram, reels, youtube-producer, youtube-thumbnail, threads-content, twitter (создание) |
 | **AI-генерация** | 4 | higgsfield-generate, higgsfield-soul-id, higgsfield-product-photoshoot, higgsfield-marketplace-cards |
 | **Сайты и приложения** | 2 | workshop, agentos-content |
 | **Визуализация** | 3 | excalidraw, miro-board, datawrapper |
