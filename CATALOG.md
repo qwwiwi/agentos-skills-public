@@ -38,6 +38,7 @@ Production-tested скиллы для Claude Code. Здесь — sanitize-ве�
 |-------|------------|--------|
 | `content-engine` | Tone-of-voice aware двигатель контента | available |
 | `present` | HTML-презентации в стиле EdgeLab | available |
+| `seo-tune` | SEO/AEO/GEO-аудит и настройка существующего сайта: robots, sitemap, canonical, meta/OG, JSON-LD, llms.txt, IndexNow — под твой домен и ключи | available |
 
 ## Соцсети — Instagram, Reels, YouTube, Threads
 
