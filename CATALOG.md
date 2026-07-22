@@ -55,6 +55,7 @@ Production-tested скиллы для Claude Code. Здесь — sanitize-ве�
 
 | Скилл | Что делает | Статус |
 |-------|------------|--------|
+| `codex-image` | Картинки, обложки и баннеры через gpt-image-2 по подписке Codex/ChatGPT — без API-ключа, до 5 референсов | available |
 | `higgsfield-generate` | Генерация в Higgsfield | available |
 | `higgsfield-soul-id` | Свой персонаж через Soul ID | available |
 | `higgsfield-product-photoshoot` | Продуктовая съёмка | available |

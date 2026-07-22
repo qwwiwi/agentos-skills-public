@@ -26,7 +26,7 @@ Production-tested скиллы от команды EdgeLab — для кодин
 | **Кодинг** | 7 | loop-coding, fast-loop-coding, mcp-builder, mcp-api-build, cross-review, dev-pipeline, server-doctor |
 | **Контент** | 5 | content-engine, landing-page-copywriter, plf-walker, present, seo-tune |
 | **Соцсети** | 7 | instagram-superpower, carousel-instagram, reels, youtube-producer, youtube-thumbnail, threads-content, twitter (создание) |
-| **AI-генерация** | 4 | higgsfield-generate, higgsfield-soul-id, higgsfield-product-photoshoot, higgsfield-marketplace-cards |
+| **AI-генерация** | 5 | codex-image, higgsfield-generate, higgsfield-soul-id, higgsfield-product-photoshoot, higgsfield-marketplace-cards |
 | **Сайты и приложения** | 2 | workshop, agentos-content |
 | **Визуализация** | 3 | excalidraw, miro-board, datawrapper |
 | **Продажи** | 4 | crm-workflow, qualification, objection-handling, follow-up |
