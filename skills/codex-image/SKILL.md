@@ -15,6 +15,8 @@ Note: the Codex *Claude Code plugin* (`openai/codex-plugin-cc`) does NOT generat
 
 ## Setup (once)
 
+**Prerequisite — connect Codex first (this is how you get the token).** The skill generates using the subscription OAuth token stored in `~/.codex/auth.json`. To obtain that token you authenticate Codex once: install the Codex plugin and connect it to Claude Code (or use the Codex CLI directly), then log in — the login writes your subscription token to `~/.codex/auth.json`. Only after Codex is connected and the token exists does generation work: `scripts/run.sh` reads that token and calls the Codex backend. Note: the Codex plugin's role is to connect Codex and produce the token — it does not itself render images; the rendering is done by this skill's own script over the Responses API.
+
 1. Install the Codex CLI: `npm install -g @openai/codex`
 2. Log in with your ChatGPT Plus/Pro (or Codex) **subscription**, not an API key: `codex login` — on a headless server use `codex login --device-auth` (gives a link + code you confirm from your phone). This writes the OAuth token to `~/.codex/auth.json`.
 3. The Python `openai` SDK is bootstrapped automatically by `scripts/run.sh` into the skill's own venv — nothing to install by hand.
