@@ -13,8 +13,8 @@ Production-tested скиллы для Claude Code. Здесь — sanitize-ве�
 | `perplexity-research` | Web research через Sonar API с источниками | available |
 | `twitter` | Чтение X/Twitter через FxTwitter + SocialData | available |
 | `markdown-new` | Чистое извлечение текста из URL в markdown | available |
-| `transcript` | Транскрибация через AssemblyAI universal-2 | available |
-| `groq-voice` | Транскрибация через Groq Whisper | available |
+| `transcript` | Транскрипт YouTube-ролика по ссылке (TranscriptAPI.com) | available |
+| `groq-voice` | Расшифровка голосовых сообщений (.ogg) через Groq Whisper | available |
 | `chat-archive` | Анализ архивов Telegram-чатов | available |
 | `telegram-chip` | Telegram user-аккаунт (Telethon): чтение, отправка и экспорт чатов через единый HTTP API | available |
 | `topic-monitor` | Регулярный мониторинг темы | available |
@@ -46,7 +46,7 @@ Production-tested скиллы для Claude Code. Здесь — sanitize-ве�
 
 | Скилл | Что делает | Статус |
 |-------|------------|--------|
-| `instagram-superpower` | Посты и карусели для Instagram | available |
+| `instagram-superpower` | Аналитика аккаунта и конкурентов через HikerAPI + скачивание рилсов и постов через Cobalt | available |
 | `carousel-instagram` | Карусели для Instagram: слайды 1080×1350 из текста и фото, HTML/CSS + Playwright-рендер | available |
 | `reels` | Сценарии Reels — 5 форматов | available |
 | `youtube-producer` | YouTube long-form | available |
