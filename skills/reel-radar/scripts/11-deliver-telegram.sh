@@ -29,13 +29,16 @@ if [ -n "${TELEGRAM_EXPECT_BOT:-}" ] && [ "$IDENTITY" != "$TELEGRAM_EXPECT_BOT" 
 fi
 echo "[ok] identity: @$IDENTITY"
 
+TG_OUT="$(mktemp -t reel-radar-tg)"
+trap 'rm -f "$TG_OUT"' EXIT
+
 send_msg(){
   local TEXT="$1"
   local HTTP
-  HTTP=$(curl -sS -o /tmp/reel-radar-tg.out -w "%{http_code}" -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+  HTTP=$(curl -sS -o "$TG_OUT" -w "%{http_code}" -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
     -F "chat_id=${CHAT_ID}" -F "parse_mode=HTML" --form-string "text=${TEXT}")
   if [ "$HTTP" != "200" ]; then
-    echo "WARN sendMessage HTTP $HTTP: $(cat /tmp/reel-radar-tg.out 2>/dev/null | head -c 300)" >&2
+    echo "WARN sendMessage HTTP $HTTP: $(cat "$TG_OUT" 2>/dev/null | head -c 300)" >&2
   fi
 }
 
@@ -43,13 +46,13 @@ send_doc(){
   local FILE="$1"
   local CAPTION="$2"
   local HTTP
-  HTTP=$(curl -sS -o /tmp/reel-radar-tg.out -w "%{http_code}" -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument" \
+  HTTP=$(curl -sS -o "$TG_OUT" -w "%{http_code}" -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument" \
     -F "chat_id=${CHAT_ID}" \
     -F "document=@${FILE}" \
     --form-string "caption=${CAPTION}" \
     -F "parse_mode=HTML")
   if [ "$HTTP" != "200" ]; then
-    echo "WARN sendDocument $FILE HTTP $HTTP: $(cat /tmp/reel-radar-tg.out 2>/dev/null | head -c 300)" >&2
+    echo "WARN sendDocument $FILE HTTP $HTTP: $(cat "$TG_OUT" 2>/dev/null | head -c 300)" >&2
   fi
 }
 

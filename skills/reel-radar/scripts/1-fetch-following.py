@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import sys
 import time
 from pathlib import Path
@@ -19,10 +20,22 @@ from pathlib import Path
 import urllib.request
 import urllib.parse
 
-from _config import SKILL_ROOT, api_key, target_user
+from _config import SKILL_ROOT, api_key, load_config, target_user
 
 CACHE_FILE = SKILL_ROOT / "cache" / "following.json"
-CACHE_TTL = 24 * 3600
+
+
+def _cache_ttl_seconds() -> int:
+    """Cache lifetime: $CACHE_TTL_HOURS wins over config/defaults.json, default 24h."""
+    raw = os.environ.get("CACHE_TTL_HOURS") or load_config().get("cache_ttl_hours", 24)
+    try:
+        hours = int(raw)
+    except (TypeError, ValueError):
+        hours = 24
+    return (hours if hours > 0 else 24) * 3600
+
+
+CACHE_TTL = _cache_ttl_seconds()
 
 log = logging.getLogger("reel-radar.1")
 

@@ -112,7 +112,6 @@ def main() -> int:
 
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
     window_to = datetime.now().strftime("%Y-%m-%d")
-    window_from = (datetime.now().replace(hour=0, minute=0, second=0, microsecond=0))
     from datetime import timedelta
     window_from_str = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
 

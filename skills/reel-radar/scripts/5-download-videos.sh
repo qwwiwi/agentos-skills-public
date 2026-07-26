@@ -11,10 +11,12 @@ STATE="$OUT/state/reels-top25.json"
 VIDS="$OUT/videos"
 mkdir -p "$VIDS"
 
-python3 - "$STATE" "$VIDS" "$HIKER_KEY" "$THRESHOLD_MB" <<'PYEOF'
+# Key goes through the environment, never argv -- argv is world-readable in `ps`.
+HIKER_KEY="$HIKER_KEY" python3 - "$STATE" "$VIDS" "$THRESHOLD_MB" <<'PYEOF'
 import json, os, subprocess, sys, urllib.request
 
-state, vids, key, threshold_mb = sys.argv[1:5]
+state, vids, threshold_mb = sys.argv[1:4]
+key = os.environ["HIKER_KEY"]
 threshold_bytes = int(threshold_mb) * 1024 * 1024
 reels = json.loads(open(state).read())
 

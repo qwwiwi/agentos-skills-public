@@ -20,7 +20,7 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --resume) RESUME=1 ;;
     --skip-telegram) SKIP_TG=1 ;;
-    --out) CUSTOM_OUT="$2"; shift ;;
+    --out) CUSTOM_OUT="${2:?--out requires a path}"; shift ;;
     -h|--help) sed -n '3,8p' "$0"; exit 0 ;;
     *) echo "unknown arg: $1" >&2; exit 2 ;;
   esac
@@ -28,7 +28,43 @@ while [ $# -gt 0 ]; do
 done
 
 DATE=$(date +%Y-%m-%d)
-OUT="${CUSTOM_OUT:-/tmp/reel-radar/$DATE}"
+
+# Tunables live in config/defaults.json; env vars win over the file.
+CFG_INTS=$(python3 - "$CONFIG" <<'PYEOF'
+import json, sys
+DEFAULTS = {"days_subscriptions": 7, "days_own_reels": 30, "top_per_account": 3,
+            "top_candidates": 25, "top_final": 15, "parallel_limit": 8,
+            "compress_threshold_mb": 50, "cache_ttl_hours": 24}
+try:
+    cfg = json.load(open(sys.argv[1]))
+except Exception:
+    cfg = {}
+out = []
+for key, fallback in DEFAULTS.items():
+    try:
+        value = int(cfg.get(key, fallback))
+    except (TypeError, ValueError):
+        value = fallback
+    out.append(str(value if value > 0 else fallback))
+print(" ".join(out))
+PYEOF
+)
+read -r DAYS_SUBS DAYS_OWN TOP_PER TOP_CAND CFG_TOP_FINAL PARALLEL COMPRESS_MB CACHE_TTL_H <<< "$CFG_INTS"
+
+OUT_TMPL=$(python3 - "$CONFIG" <<'PYEOF'
+import json, sys
+try:
+    print(json.load(open(sys.argv[1])).get("output_dir") or "/tmp/reel-radar/{date}")
+except Exception:
+    print("/tmp/reel-radar/{date}")
+PYEOF
+)
+OUT="${CUSTOM_OUT:-${OUT_TMPL//\{date\}/$DATE}}"
+
+# Consumed by 5-download-videos.sh and 1-fetch-following.py respectively.
+export COMPRESS_THRESHOLD_MB="${COMPRESS_THRESHOLD_MB:-$COMPRESS_MB}"
+export CACHE_TTL_HOURS="${CACHE_TTL_HOURS:-$CACHE_TTL_H}"
+
 mkdir -p "$OUT"/{state,videos,transcripts}
 PROGRESS="$OUT/state/progress.json"
 
@@ -95,8 +131,8 @@ else log "1/11  skip (resume)"; fi
 
 # --- STEP 2: reels ---
 if ! is_done step_2_reels; then
-  log "2/11  fetching reels for each followed account"
-  python3 "$SCRIPTS/2-fetch-reels.py" "$OUT" --days 7 --top 3 --parallel 8
+  log "2/11  fetching reels for each followed account (${DAYS_SUBS}d window, top ${TOP_PER}/account)"
+  python3 "$SCRIPTS/2-fetch-reels.py" "$OUT" --days "$DAYS_SUBS" --top "$TOP_PER" --parallel "$PARALLEL"
   mark_done step_2_reels
 else log "2/11  skip (resume)"; fi
 
@@ -109,8 +145,8 @@ else log "3/11  skip (resume)"; fi
 
 # --- STEP 4: rank ---
 if ! is_done step_4_rank; then
-  log "4/11  composite ranking → top 25"
-  python3 "$SCRIPTS/4-rank-composite.py" "$OUT" --top 25
+  log "4/11  composite ranking → top $TOP_CAND"
+  python3 "$SCRIPTS/4-rank-composite.py" "$OUT" --top "$TOP_CAND"
   mark_done step_4_rank
 else log "4/11  skip (resume)"; fi
 
@@ -131,13 +167,13 @@ else log "6/11  skip (resume)"; fi
 # --- STEP 7: own reels ---
 if ! is_done step_7_own; then
   log "7/11  fetching the reference account's own top reels (30d)"
-  python3 "$SCRIPTS/7-fetch-own-reels.py" "$OUT" --days 30 --top 10
+  python3 "$SCRIPTS/7-fetch-own-reels.py" "$OUT" --days "$DAYS_OWN" --top 10
   mark_done step_7_own
 else log "7/11  skip (resume)"; fi
 
 # --- STEP 8: relevance match ---
 if ! is_done step_8_relevance; then
-  TOP_N="${TOP_FINAL:-15}"
+  TOP_N="${TOP_FINAL:-$CFG_TOP_FINAL}"
   log "8/11  relevance matching → top $TOP_N"
   python3 "$SCRIPTS/8-relevance-match.py" "$OUT" --top "$TOP_N"
   mark_done step_8_relevance

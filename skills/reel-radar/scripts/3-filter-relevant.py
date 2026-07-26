@@ -12,21 +12,27 @@ SKILL_ROOT = Path(__file__).resolve().parent.parent
 log = logging.getLogger("reel-radar.3")
 
 
-def load_keywords() -> list[re.Pattern]:
+def load_keywords() -> list[tuple[str, re.Pattern]]:
+    """Read config/keywords.txt -> [(keyword, compiled pattern), ...].
+
+    Lines whose first non-space character is '#' are comments.
+    The keyword is kept alongside the pattern so matches can be reported in
+    human-readable form instead of as regex source.
+    """
     raw = (SKILL_ROOT / "config" / "keywords.txt").read_text().splitlines()
-    kws = [k.strip().lower() for k in raw if k.strip() and not k.startswith("#")]
+    kws = [k.strip().lower() for k in raw if k.strip() and not k.strip().startswith("#")]
     patterns = []
     for kw in kws:
         esc = re.escape(kw)
-        patterns.append(re.compile(rf"(?:^|[^\wа-яё]){esc}(?:[^\wа-яё]|$)", re.IGNORECASE))
+        patterns.append((kw, re.compile(rf"(?:^|[^\wа-яё]){esc}(?:[^\wа-яё]|$)", re.IGNORECASE)))
     return patterns
 
 
-def is_relevant(reel: dict, patterns: list[re.Pattern]) -> tuple[bool, list[str]]:
+def is_relevant(reel: dict, patterns: list[tuple[str, re.Pattern]]) -> tuple[bool, list[str]]:
     haystack = " ".join(
         str(reel.get(f, "") or "") for f in ("caption", "author_bio", "author")
     ).lower()
-    matched = [p.pattern for p in patterns if p.search(haystack)]
+    matched = [kw for kw, pat in patterns if pat.search(haystack)]
     return bool(matched), matched
 
 

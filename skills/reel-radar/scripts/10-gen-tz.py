@@ -282,7 +282,7 @@ def main() -> int:
             .replace("{CTA_BRIDGE}", build_cta_bridge(code_word, cw_benefit))
             .replace("{TIMELINE}", build_timeline(formula, r.get("video_duration", 30)))
             .replace("{CTA_TEXT}", f"Код-слово в финале (звучит в телесуфлёре, дубль на экран):")
-            .replace("{CODE_WORD}", code_word)
+            .replace("{CODE_WORD}", html.escape(code_word))
             .replace("{CW_BENEFIT}", html.escape(cw_benefit))
             .replace("{DURATION}", f"{float(r.get('video_duration',0)):.1f}")
             .replace("{KEYWORDS}", " ".join(f'<span class="pill">{html.escape(k)}</span>' for k in (r.get("matched_keywords") or [])[:8]))

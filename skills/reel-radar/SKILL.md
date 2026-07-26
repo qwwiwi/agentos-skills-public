@@ -3,7 +3,7 @@ name: reel-radar
 description: "Контент-разведка Instagram под съёмку: берёт эталонный аккаунт твоей ниши, сканирует его подписки, вытаскивает залетевшие рилсы за последние 7 дней, фильтрует по ключевым словам ниши, ранжирует композитно (просмотры + комментарии + ER), транскрибирует, сопоставляет с тем, что уже работает на твоём аккаунте, и отдаёт HTML-дашборд с 25 референсами плюс 15 готовых ТЗ на съёмку — телесуфлёр, монтажный timeline, код-слово. Используй этот скилл, когда просят найти рилсы, сделать разведку рилсов, придумать что снимать, собрать референсы или идеи для съёмки, разобрать что залетает у конкурентов в Instagram, подготовить ТЗ для съёмки на неделю — даже если слово «reel-radar» не произнесено. НЕ для: публикации в Instagram, накрутки, сбора персональных данных, YouTube и TikTok."
 homepage: https://github.com/qwwiwi/agentos-skills-public
 user-invocable: true
-metadata: {"openclaw":{"emoji":"📻","requires":{"bins":["python3","curl","ffmpeg"]},"env":["HIKER_KEY","GROQ_KEY"],"optionalEnv":["TELEGRAM_BOT_TOKEN","TELEGRAM_CHAT_ID","TARGET_USER","CODE_WORDS_FILE","WATCHLIST"]}}
+metadata: {"openclaw":{"emoji":"📻","requires":{"bins":["python3","curl","ffmpeg"]},"env":["HIKER_KEY","GROQ_KEY"],"optionalEnv":["TELEGRAM_BOT_TOKEN","TELEGRAM_CHAT_ID","TELEGRAM_EXPECT_BOT","TARGET_USER","CODE_WORDS_FILE","WATCHLIST","REEL_RADAR_ENV","TOP_FINAL","COMPRESS_THRESHOLD_MB","CACHE_TTL_HOURS","FORCE_CTA_CODE","FORCE_CTA_BENEFIT","FORCE_CTA_BRIDGE_LEAD"]}}
 ---
 
 # Reel Radar — разведка рилсов под съёмку
@@ -77,6 +77,26 @@ export TARGET_USER="account"  # эталонный аккаунт ниши, бе
 **4. Запасной список аккаунтов** (опционально) — `data/watchlist.example.json`
 скопируй в `data/watchlist.json` и заполни своими. Нужен, когда у эталонного
 аккаунта закрытые или недоступные подписки: тогда пайплайн идёт по твоему списку.
+
+### Переменные окружения целиком
+
+| Переменная | Что делает |
+|---|---|
+| `HIKER_KEY` / `HIKER_API_KEY` | ключ провайдера данных, обязателен |
+| `GROQ_KEY` / `GROQ_API_KEY` | ключ транскрипции, обязателен |
+| `TARGET_USER` | эталонный аккаунт, перекрывает конфиг |
+| `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | доставка артефактов |
+| `TELEGRAM_EXPECT_BOT` | ожидаемый username бота, проверка перед отправкой |
+| `REEL_RADAR_ENV` | путь к своему env-файлу вместо `<skill>/.env` |
+| `TOP_FINAL` | сколько ТЗ на выходе, перекрывает `top_final` |
+| `COMPRESS_THRESHOLD_MB` | порог сжатия видео, перекрывает конфиг |
+| `CACHE_TTL_HOURS` | время жизни кэша подписок |
+| `CODE_WORDS_FILE` | свой список код-слов CTA |
+| `WATCHLIST` | свой путь к запасному списку аккаунтов |
+| `FORCE_CTA_CODE`, `FORCE_CTA_BENEFIT`, `FORCE_CTA_BRIDGE_LEAD` | одинаковый CTA на весь батч |
+
+Остальные пороги и размеры выборок — в `config/defaults.json`; переменные
+окружения имеют приоритет над файлом.
 
 ## Временное окно
 

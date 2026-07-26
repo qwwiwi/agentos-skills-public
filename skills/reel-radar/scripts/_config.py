@@ -38,10 +38,12 @@ def target_user(cli_value: str | None = None) -> str:
     value = (cli_value or os.environ.get("TARGET_USER") or load_config().get("target_user") or "").strip()
     value = value.lstrip("@")
     if not value:
-        sys.exit(
+        print(
             "target account is not set. Use --username, or export TARGET_USER=<instagram_login>, "
-            f"or fill \"target_user\" in {CONFIG_FILE}"
+            f'or fill "target_user" in {CONFIG_FILE}',
+            file=sys.stderr,
         )
+        raise SystemExit(3)
     return value
 
 
@@ -49,5 +51,6 @@ def api_key() -> str:
     """Read the data-provider key from the environment (HIKER_KEY or HIKER_API_KEY)."""
     key = (os.environ.get("HIKER_KEY") or os.environ.get("HIKER_API_KEY") or "").strip()
     if not key:
-        sys.exit("HIKER_KEY env var is empty — export your key from https://hikerapi.com")
+        print("HIKER_KEY env var is empty — export your key from https://hikerapi.com", file=sys.stderr)
+        raise SystemExit(3)
     return key

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Score top-25 candidates against prince's own top-10 reels, pick top-15.
+"""Score top-25 candidates against the reference account's own top-10 reels, pick top-15.
 
 Relevance heuristic (0-100):
   - Theme overlap (keyword Jaccard) × 40

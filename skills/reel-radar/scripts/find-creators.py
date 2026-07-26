@@ -11,7 +11,7 @@ Pipeline:
 HikerAPI only. Cheap, not credit-limited. Single clips call/account (clips caps at ~12),
 so monthly cadence is extrapolated from the span of the returned batch.
 
-Usage: HIKER_KEY=... python3 find-creators.py <out_dir> [--target 100] [--min-followers 10000]
+Usage: HIKER_KEY=... (or HIKER_API_KEY) python3 find-creators.py <out_dir> [--target 100] [--min-followers 10000]
                                                           [--min-reels-month 30] [--pages 3] [--parallel 8]
 """
 from __future__ import annotations
@@ -261,7 +261,7 @@ def _topic_hits(text: str) -> int:
 
 
 async def run(args: argparse.Namespace) -> int:
-    key = os.environ.get("HIKER_KEY") or os.environ.get("HIKERAPI_KEY", "")
+    key = os.environ.get("HIKER_KEY") or os.environ.get("HIKER_API_KEY") or os.environ.get("HIKERAPI_KEY", "")
     if not key:
         log.error("HIKER_KEY env empty")
         return 3
