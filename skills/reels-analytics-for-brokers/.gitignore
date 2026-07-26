@@ -1,0 +1,8 @@
+runs/
+*.pyc
+__pycache__/
+.venv/
+manual-100.txt
+secrets/
+*.mp4
+*.ogg
