@@ -2,7 +2,7 @@
 
 Production-tested скиллы для Claude Code. Здесь — sanitize-версия наших внутренних скиллов: вычищены приватные токены, IP-адреса, личные пути, упоминания закрытых чатов.
 
-> Каталог-витрина с подробным описанием каждого скилла живёт на [agentos.edgelab.su/intensive/5](https://agentos.edgelab.su/intensive/5).
+> Каталог-витрина с подробным описанием каждого скилла живёт в кабинете интенсива: [vibe.edgelab.space](https://vibe.edgelab.space).
 
 ---
 
@@ -19,6 +19,7 @@ Production-tested скиллы для Claude Code. Здесь — sanitize-ве�
 | `telegram-chip` | Telegram user-аккаунт (Telethon): чтение, отправка и экспорт чатов через единый HTTP API | available |
 | `topic-monitor` | Регулярный мониторинг темы | available |
 | `yt-research` | YouTube-ресерч: поиск по нише, velocity, скан каналов-конкурентов, транскрипты | available |
+| `reel-radar` | Контент-разведка Instagram под съёмку: подписки эталонного аккаунта, залетевшие рилсы за неделю, транскрипты, дашборд с 25 референсами и 15 ТЗ на съёмку | available |
 
 ## Кодинг и разработка
 
@@ -31,6 +32,7 @@ Production-tested скиллы для Claude Code. Здесь — sanitize-ве�
 | `cross-review` | Двойное ревью Opus + Codex | available |
 | `dev-pipeline` | Оркестрация разработки на сервере | available |
 | `server-doctor` | Аудит и починка Linux/macOS | available |
+| `agent-browser` | Управление настоящим браузером из агента: открыть, кликнуть, заполнить форму, скриншот, вытащить данные, проверить веб-приложение. Обёртка над CLI agent-browser (vercel-labs, Apache-2.0) | available |
 
 ## Контент и копирайтинг
 
@@ -91,7 +93,6 @@ Production-tested скиллы для Claude Code. Здесь — sanitize-ве�
 
 Эти скиллы пока в работе — sanitize требует переработки или скилл специфичен под конкретный кейс.
 
-- `reel-radar` — анализ трендовых рилсов конкурентов
 - `landing-page-copywriter` — копирайтинг лендингов
 - `plf-walker` — Product Launch Formula прогрев
 - `crm-workflow`, `qualification`, `objection-handling`, `follow-up` — продажный блок

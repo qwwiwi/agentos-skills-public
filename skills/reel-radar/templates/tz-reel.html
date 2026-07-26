@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="ru"><head>
+<meta charset="utf-8"/>
+<title>ТЗ {TZ_NUM} – {FORMULA_LABEL}</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#141416;--panel:#1b1b1f;--panel2:#202024;--ink:#eceaea;--dim:#8a8a8f;--gold:#c9a44a;--line:#2a2a2e;--accent:#c9a44a;}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:'Inter',system-ui,sans-serif;font-size:15px;line-height:1.6}
+h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:700;margin:0 0 .5em 0}
+h1{font-size:40px;letter-spacing:-.01em}
+h2{font-size:24px;color:var(--gold);margin-top:30px}
+h3{font-size:18px;margin-top:20px}
+code,.mono{font-family:'JetBrains Mono',monospace;font-size:13px}
+.wrap{max-width:860px;margin:0 auto;padding:40px 28px 80px}
+.hero{padding:36px 30px;background:linear-gradient(180deg,#1c1c20 0%,#141416 100%);border:1px solid var(--line);border-radius:14px;margin-bottom:28px}
+.tag{display:inline-block;padding:5px 12px;background:rgba(201,164,74,.12);color:var(--gold);border:1px solid rgba(201,164,74,.35);border-radius:20px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:14px;margin-right:6px}
+.meta-line{color:var(--dim);font-size:13px;margin-top:16px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:18px 0 0 0}
+.stat{background:var(--panel2);padding:12px 14px;border-radius:8px;border:1px solid var(--line)}
+.stat .l{color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.05em}
+.stat .v{font-family:'Playfair Display',serif;font-size:20px;color:var(--gold);font-weight:700}
+.block{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:22px 26px;margin:18px 0}
+.teleprompter{background:#121214;border:1px solid var(--gold);border-left:4px solid var(--gold);padding:26px 30px;border-radius:10px;margin:18px 0;font-size:17px;line-height:1.75;font-family:'Inter',sans-serif}
+.teleprompter p{margin:0 0 14px 0}
+.teleprompter p.cta-bridge{border-top:1px dashed rgba(201,164,74,.4);padding-top:16px;margin-top:4px}
+.teleprompter p.cta-bridge b{color:var(--gold)}
+.timeline{display:flex;flex-direction:column;gap:2px;margin:10px 0}
+.tb{display:grid;grid-template-columns:90px 1fr;background:var(--panel2);padding:14px 18px;border-radius:8px;border:1px solid var(--line);gap:18px}
+.tb .t{font-family:'JetBrains Mono',monospace;color:var(--gold);font-weight:500;font-size:13px}
+.tb .d{color:var(--ink);font-size:14px}
+.tb .d b{color:#fff}
+.cta{background:linear-gradient(135deg,rgba(201,164,74,.15) 0%,rgba(201,164,74,.05) 100%);border:1px solid rgba(201,164,74,.4);padding:22px 26px;border-radius:10px;margin:18px 0}
+.cta .cw{font-family:'JetBrains Mono',monospace;font-size:22px;color:var(--gold);font-weight:500;letter-spacing:.1em;text-transform:uppercase}
+.pill{display:inline-block;padding:3px 10px;border-radius:14px;font-size:11px;background:rgba(201,164,74,.12);color:var(--gold);margin:2px 3px 0 0}
+a{color:var(--gold);text-decoration:none}
+a:hover{text-decoration:underline}
+.why{color:var(--dim);font-size:14px;font-style:italic}
+.footer{margin-top:50px;padding-top:24px;border-top:1px solid var(--line);color:var(--dim);font-size:12px;text-align:center}
+@media(max-width:700px){.stats{grid-template-columns:repeat(2,1fr)}.tb{grid-template-columns:70px 1fr;gap:10px}h1{font-size:28px}.hero{padding:24px 20px}}
+</style></head>
+<body><div class="wrap">
+<div class="hero">
+  <span class="tag">ТЗ {TZ_NUM} / 15</span>
+  <span class="tag">{FORMULA_LABEL}</span>
+  <h1>{HEADLINE}</h1>
+  <div class="meta-line">Автор-источник: <a href="{SOURCE_URL}" target="_blank">@{SOURCE_AUTHOR}</a> • Тема: <span style="color:var(--ink)">{TOPIC}</span> • Релевантность для блога: <span class="mono" style="color:var(--gold)">{RELEVANCE_SCORE}</span></div>
+  <div class="stats">
+    <div class="stat"><div class="l">Просмотры</div><div class="v">{VIEWS}</div></div>
+    <div class="stat"><div class="l">Лайки</div><div class="v">{LIKES}</div></div>
+    <div class="stat"><div class="l">Комменты</div><div class="v">{COMMENTS}</div></div>
+    <div class="stat"><div class="l">ER</div><div class="v">{ER}%</div></div>
+  </div>
+</div>
+
+<h2>Почему залетел</h2>
+<div class="block">
+  <div>{WHY_HIT}</div>
+</div>
+
+<h2>Телесуфлёр <span style="font-size:13px;color:var(--dim);font-weight:400">(хук → контент → CTA одним текстом, читается с листа без склейки)</span></h2>
+<div class="teleprompter">{TELEPROMPTER}
+<p class="cta-bridge">{CTA_BRIDGE}</p></div>
+
+<h2>Монтажный timeline</h2>
+<div class="timeline">
+{TIMELINE}
+</div>
+
+<h2>Код-слово – на экран <span style="font-size:13px;color:var(--dim);font-weight:400">(дубль для монтажёра, сам призыв звучит в телесуфлёре)</span></h2>
+<div class="cta">
+  <div style="margin-bottom:10px">{CTA_TEXT}</div>
+  <div class="cw">{CODE_WORD}</div>
+  <div style="margin-top:10px;color:var(--dim);font-size:13px">Крупно на экран в финале. Пишут это слово в комменты – получают {CW_BENEFIT}</div>
+</div>
+
+<h2>Метаданные</h2>
+<div class="block">
+  <div><b>Длительность оригинала:</b> <span class="mono">{DURATION}s</span></div>
+  <div><b>Ключевые слова:</b> {KEYWORDS}</div>
+  <div><b>Оригинал:</b> <a href="{SOURCE_URL}" target="_blank">{SOURCE_URL}</a></div>
+</div>
+
+<div class="footer">
+Reel Radar • Сгенерировано {GENERATED_AT}
+</div>
+</div></body></html>

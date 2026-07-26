@@ -1,0 +1,44 @@
+# EXAMPLE NICHE VOCABULARY (AI / agents / coding).
+# Replace with the words of YOUR niche -- one per line, '#' at column 0 is a comment.
+# Match is case-insensitive and word-boundary aware; Cyrillic works.
+# Prefixes are fine: 'нейросет' catches 'нейросети', 'нейросетью'.
+ai
+ии
+claude
+claudecode
+cursor
+agent
+агент
+агенты
+mcp
+gpt
+chatgpt
+openai
+anthropic
+llm
+нейросет
+нейронк
+prompt
+промпт
+automation
+автоматизаци
+workflow
+n8n
+zapier
+make.com
+v0
+replit
+lovable
+bolt
+vibe coding
+copilot
+codex
+windsurf
+trae
+ide
+коди
+разраб
+старт
+no-code
+no code
+нокод
