@@ -29,6 +29,7 @@ Production-tested скиллы для Claude Code. Здесь — sanitize-ве�
 | `fast-loop-coding` | Облегчённая версия для средних задач | available |
 | `mcp-builder` | Создание MCP-серверов (Python/Node) | available |
 | `mcp-api-build` | Дизайн REST API + конвертация в MCP | available |
+| `senior-brainstorm` | Разбор архитектуры и выбор стека под проект: что строить, на чём, что покупать вместо разработки | available |
 | `cross-review` | Двойное ревью Opus + Codex | available |
 | `dev-pipeline` | Оркестрация разработки на сервере | available |
 | `server-doctor` | Аудит и починка Linux/macOS | available |

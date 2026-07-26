@@ -23,7 +23,7 @@ Production-tested скиллы от команды EdgeLab — для кодин
 | Категория | Скиллов | Что внутри |
 |-----------|---------|------------|
 | **Ресерч** | 10 | perplexity, twitter, transcript, markdown-new, groq-voice, reel-radar, chat-archive, topic-monitor, yt-research, telegram-chip |
-| **Кодинг** | 8 | loop-coding, fast-loop-coding, mcp-builder, mcp-api-build, cross-review, dev-pipeline, server-doctor, agent-browser |
+| **Кодинг** | 9 | loop-coding, fast-loop-coding, mcp-builder, mcp-api-build, cross-review, dev-pipeline, server-doctor, agent-browser, senior-brainstorm |
 | **Контент** | 3 | content-engine, present, seo-tune |
 | **Соцсети** | 8 | instagram-superpower, carousel-instagram, reels, reels-analytics-for-brokers, youtube-producer, youtube-thumbnail, threads-content, twitter (создание) |
 | **AI-генерация** | 5 | codex-image, higgsfield-generate, higgsfield-soul-id, higgsfield-product-photoshoot, higgsfield-marketplace-cards |
