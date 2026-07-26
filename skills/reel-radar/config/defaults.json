@@ -1,0 +1,12 @@
+{
+  "target_user": "",
+  "days_subscriptions": 7,
+  "days_own_reels": 30,
+  "top_per_account": 3,
+  "top_candidates": 25,
+  "top_final": 15,
+  "output_dir": "/tmp/reel-radar/{date}",
+  "compress_threshold_mb": 50,
+  "parallel_limit": 8,
+  "cache_ttl_hours": 24
+}

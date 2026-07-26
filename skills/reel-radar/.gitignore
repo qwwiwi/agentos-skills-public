@@ -1,0 +1,10 @@
+# Runtime data — never commit your own accounts, keys or outputs.
+.env
+cache/
+data/watchlist.json
+state/
+videos/
+transcripts/
+*.report.json
+__pycache__/
+*.pyc

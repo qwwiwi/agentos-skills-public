@@ -10,7 +10,7 @@ Production-tested скиллы от команды EdgeLab — для кодин
 
 Скилл — это компактная инструкция для Claude Code, которая активируется по триггеру. Внутри: описание задачи, пошаговый процесс, шаблоны, иногда вспомогательные скрипты. Когда ты пишешь Claude «сделай мне рилс» — он находит скилл `reels` и работает по проверенной методике.
 
-Подробнее: [agentos.edgelab.su/intensive/5](https://agentos.edgelab.su/intensive/5)
+Подробнее: [vibe.edgelab.space](https://vibe.edgelab.space)
 
 ---
 
@@ -23,7 +23,7 @@ Production-tested скиллы от команды EdgeLab — для кодин
 | Категория | Скиллов | Что внутри |
 |-----------|---------|------------|
 | **Ресерч** | 9 | perplexity, twitter, transcript, markdown-new, groq-voice, reel-radar, chat-archive, topic-monitor, yt-research |
-| **Кодинг** | 7 | loop-coding, fast-loop-coding, mcp-builder, mcp-api-build, cross-review, dev-pipeline, server-doctor |
+| **Кодинг** | 8 | loop-coding, fast-loop-coding, mcp-builder, mcp-api-build, cross-review, dev-pipeline, server-doctor, agent-browser |
 | **Контент** | 5 | content-engine, landing-page-copywriter, plf-walker, present, seo-tune |
 | **Соцсети** | 8 | instagram-superpower, carousel-instagram, reels, reels-analytics-for-brokers, youtube-producer, youtube-thumbnail, threads-content, twitter (создание) |
 | **AI-генерация** | 5 | codex-image, higgsfield-generate, higgsfield-soul-id, higgsfield-product-photoshoot, higgsfield-marketplace-cards |
@@ -104,4 +104,4 @@ MIT — используй, модифицируй, публикуй. Атриб
 
 ## Контекст
 
-Этот репозиторий — часть материалов интенсива «AgentOS» от EdgeLab. Подробнее об интенсиве: [agentos.edgelab.su](https://agentos.edgelab.su).
+Этот репозиторий — часть материалов интенсива «AgentOS» от EdgeLab. Кабинет интенсива: [vibe.edgelab.space](https://vibe.edgelab.space).

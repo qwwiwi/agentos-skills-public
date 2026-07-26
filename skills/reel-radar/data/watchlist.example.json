@@ -1,0 +1,29 @@
+{
+  "description": "EXAMPLE seed list. Copy to data/watchlist.json and fill with YOUR OWN niche accounts, or point $WATCHLIST at any JSON of this shape. Used as a fallback when the reference account has no public following list, and as a seed for scripts/find-creators.py.",
+  "how_to_build": "Open a big living account in your niche, walk its 'similar profiles' block, keep every account that actually posts reels on your topic. Aim for ~100 before you automate anything.",
+  "snapshot_date": "YYYY-MM-DD",
+  "total": 3,
+  "accounts": [
+    {
+      "username": "example_account_one",
+      "url": "https://instagram.com/example_account_one",
+      "full_name": "Example Account One",
+      "biography": "why this account is a reference for your niche",
+      "follower_count": 0
+    },
+    {
+      "username": "example_account_two",
+      "url": "https://instagram.com/example_account_two",
+      "full_name": "Example Account Two",
+      "biography": "",
+      "follower_count": 0
+    },
+    {
+      "username": "example_account_three",
+      "url": "https://instagram.com/example_account_three",
+      "full_name": "Example Account Three",
+      "biography": "",
+      "follower_count": 0
+    }
+  ]
+}
