@@ -41,17 +41,40 @@ log = logging.getLogger("rank")
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Rank reels by spike over the account's own median.")
     parser.add_argument("--out", type=Path, required=True)
-    parser.add_argument("--top", type=int, default=250, help="how many reels to keep")
-    parser.add_argument("--days", type=int, default=14, help="ranking window (shorter than the qualification window)")
+    parser.add_argument("--config", type=Path,
+                        help="niche config; supplies defaults for --days (ranking_days) and --top (top_reels)")
+    parser.add_argument("--top", type=int, help="how many reels to keep (default 250, or top_reels from --config)")
+    parser.add_argument("--days", type=int,
+                        help="ranking window, shorter than the qualification window "
+                             "(default 14, or ranking_days from --config)")
     parser.add_argument("--min-views", type=int, default=300,
                         help="floor that stops a 30-view account from producing fake 10x spikes")
     parser.add_argument("--min-account-reels", type=int, default=5,
                         help="an account needs this many reels for its median to mean anything")
-    return parser.parse_args()
+    args = parser.parse_args()
+
+    # The config is the place a reader edits first when porting the skill to a
+    # new niche, so the window and depth keys there have to actually do
+    # something. Explicit flags still win over the config.
+    config = json.loads(args.config.read_text(encoding="utf-8")) if args.config else {}
+    if args.days is None:
+        args.days = int(config.get("ranking_days", 14))
+    if args.top is None:
+        args.top = int(config.get("top_reels", 250))
+    if args.top < 1:
+        parser.error("--top must be >= 1")
+    if args.days < 1:
+        parser.error("--days must be >= 1")
+    return args
 
 
 def percentile(values: list[float], fraction: float) -> float:
-    """Simple nearest-rank percentile; avoids a numpy dependency."""
+    """Rounded-index percentile; avoids a numpy dependency.
+
+    Not the nearest-rank definition — for n=10 the 0.9 fraction lands on the
+    9th value rather than the 10th. Close enough for a sanity figure in the
+    summary, but do not quote it as a formal percentile.
+    """
     if not values:
         return 0.0
     ordered = sorted(values)
@@ -78,7 +101,12 @@ def main() -> int:
         if views < args.min_views:
             continue
 
-        median_views = float(account["median_views"]) or 1.0
+        # A zero median cannot produce a meaningful spike. Substituting 1.0 would
+        # silently turn a 5,000-view reel into a "5000x breakout" and hand it the
+        # leader slot — skip the account instead of inventing a denominator.
+        median_views = float(account["median_views"])
+        if median_views <= 0:
+            continue
         followers = max(int(account["followers"]), 1)
         interactions = reel["likes"] + reel["comments"]
 

@@ -27,7 +27,16 @@ BASE_URL = os.environ.get("HIKER_BASE_URL", "https://api.instagrapi.com")
 
 # HikerAPI bills per request. Keep this in one place so cost estimates in the
 # scripts stay honest; check your own tier via GET /sys/balance.
-PRICE_PER_REQUEST_USD = float(os.environ.get("HIKER_PRICE_PER_REQUEST", "0.001"))
+def _price_from_env(default: float = 0.001) -> float:
+    """Read the per-request price, falling back rather than dying at import."""
+    try:
+        return float(os.environ.get("HIKER_PRICE_PER_REQUEST", default))
+    except (TypeError, ValueError):
+        log.warning("HIKER_PRICE_PER_REQUEST is not a number, using %s", default)
+        return default
+
+
+PRICE_PER_REQUEST_USD = _price_from_env()
 
 
 class HikerError(RuntimeError):
@@ -70,6 +79,9 @@ class Hiker:
         self.limiter = RateLimiter(rps)
         self.timeout = timeout
         self.requests_used = 0
+        # Workers share one client, and this counter is reported to the user as
+        # the run's cost — `+=` is a read-modify-write and can lose increments.
+        self._counter_lock = threading.Lock()
 
     @property
     def spent_usd(self) -> float:
@@ -98,7 +110,8 @@ class Hiker:
             self.limiter.wait()
             request = urllib.request.Request(url, headers={"accept": "application/json", "x-access-key": self.access_key})
             try:
-                self.requests_used += 1
+                with self._counter_lock:
+                    self.requests_used += 1
                 with urllib.request.urlopen(request, timeout=self.timeout) as response:
                     return json.loads(response.read().decode("utf-8", errors="replace"))
             except urllib.error.HTTPError as err:
@@ -135,13 +148,22 @@ def unwrap(payload: dict[str, Any], *keys: str) -> Any:
 
 
 def paginate(client: Hiker, path: str, params: dict[str, Any], item_keys: tuple[str, ...],
-             max_pages: int = 20, page_param: str = "page_id") -> Iterator[list[dict[str, Any]]]:
+             max_pages: int = 20, page_param: str = "page_id",
+             empty_page_budget: int = 1) -> Iterator[list[dict[str, Any]]]:
     """Yield pages of items until the cursor runs out or ``max_pages`` is hit.
 
     The cursor field is inconsistent across endpoints (``next_page_id``,
     ``next_max_id``, ``end_cursor``), so all of them are checked.
+
+    Two failure modes are handled explicitly because both cost money silently:
+    a server that keeps handing back the SAME cursor would otherwise be paid for
+    ``max_pages`` identical fetches, and a single empty page in the middle of a
+    walk would otherwise abandon everything after it.
     """
     cursor: str | None = None
+    seen_cursors: set[str] = set()
+    empty_pages = 0
+
     for _ in range(max_pages):
         page_params = dict(params)
         if cursor:
@@ -151,9 +173,44 @@ def paginate(client: Hiker, path: str, params: dict[str, Any], item_keys: tuple[
         if not isinstance(items, list):
             items = []
         yield items
+
+        if not items:
+            empty_pages += 1
+            if empty_pages > empty_page_budget:
+                return
+        else:
+            empty_pages = 0
+
         cursor = unwrap(payload, "next_page_id", "next_max_id", "end_cursor")
-        if not cursor or not items:
+        # `not cursor` would also swallow a legitimate numeric 0 cursor.
+        if cursor is None or cursor == "":
             return
+        cursor = str(cursor)
+        if cursor in seen_cursors:
+            log.debug("%s returned a repeating cursor, stopping pagination", path)
+            return
+        seen_cursors.add(cursor)
+
+
+def num(value: Any, cast: Any, default: Any = 0) -> Any:
+    """Cast an API field that is *usually* numeric but sometimes arrives as text.
+
+    The API occasionally returns ``"12 345"`` or an ISO timestamp where a number
+    is documented. Raising there would surface three layers up as a generic
+    "error" and look exactly like an empty niche, so coerce what we can and fall
+    back to the default instead of exploding.
+    """
+    if value is None:
+        return default
+    try:
+        return cast(value)
+    except (TypeError, ValueError):
+        pass
+    try:
+        cleaned = str(value).replace("\u00a0", "").replace(" ", "").replace(",", "")
+        return cast(cleaned)
+    except (TypeError, ValueError):
+        return default
 
 
 def media_fields(media: dict[str, Any]) -> dict[str, Any]:
@@ -169,10 +226,10 @@ def media_fields(media: dict[str, Any]) -> dict[str, Any]:
         "code": code,
         "pk": str(media.get("pk") or media.get("id") or ""),
         "caption": caption_text,
-        "views": int(media.get("play_count") or media.get("view_count") or 0),
-        "likes": int(media.get("like_count") or 0),
-        "comments": int(media.get("comment_count") or 0),
-        "duration": float(media.get("video_duration") or 0),
-        "taken_at": float(media.get("taken_at") or media.get("taken_at_ts") or 0),
+        "views": num(media.get("play_count") or media.get("view_count"), int, 0),
+        "likes": num(media.get("like_count"), int, 0),
+        "comments": num(media.get("comment_count"), int, 0),
+        "duration": num(media.get("video_duration"), float, 0.0),
+        "taken_at": num(media.get("taken_at") or media.get("taken_at_ts"), float, 0.0),
         "url": f"https://www.instagram.com/reel/{code}/" if code else "",
     }

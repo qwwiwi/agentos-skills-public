@@ -34,7 +34,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-from hiker import Hiker, media_fields, paginate, unwrap
+from hiker import Hiker, HikerError, media_fields, paginate, unwrap
 from seed_pool import keyword_hits
 
 log = logging.getLogger("qualify")
@@ -69,15 +69,21 @@ def fetch_reels(client: Hiker, user_id: str, cutoff_ts: float, pages: int) -> li
     chronological order. Never stop paginating at the first "old" item — read a
     fixed number of pages and filter by taken_at afterwards.
     """
-    collected: list[dict[str, Any]] = []
+    collected: dict[str, dict[str, Any]] = {}
     for page in paginate(client, "/v2/user/clips", {"user_id": user_id}, ("items", "response"), max_pages=pages):
         if not page:
             break
         for item in page:
             media = item.get("media") if isinstance(item, dict) and isinstance(item.get("media"), dict) else item
             if isinstance(media, dict):
-                collected.append(media_fields(media))
-    return [reel for reel in collected if reel["taken_at"] >= cutoff_ts]
+                reel = media_fields(media)
+                # Keyed rather than appended: a repeated page would otherwise
+                # inflate reels_in_window past the activity gate and drag the
+                # median toward whichever reel got counted twice.
+                identity = reel["pk"] or reel["code"]
+                if identity:
+                    collected[identity] = reel
+    return [reel for reel in collected.values() if reel["taken_at"] >= cutoff_ts]
 
 
 def qualify_one(client: Hiker, candidate: dict[str, Any], config: dict[str, Any],
@@ -148,6 +154,18 @@ def main() -> int:
     args = parse_args()
     config = json.loads(args.config.read_text(encoding="utf-8"))
     pool = json.loads((args.out / "pool.json").read_text(encoding="utf-8"))
+
+    # Deduplicate BEFORE dispatching: the post-hoc check further down protects
+    # the report, but by then both copies have already burned a paid profile
+    # call plus up to three clip pages. Username is the only key both a manual
+    # seed and a snowball hit share.
+    unique: dict[str, dict[str, Any]] = {}
+    for candidate in pool:
+        unique.setdefault(candidate["username"].lower(), candidate)
+    if len(unique) < len(pool):
+        log.info("pool had %d duplicate entries, collapsed before spending", len(pool) - len(unique))
+    pool = list(unique.values())
+
     if args.limit:
         pool = pool[: args.limit]
 
@@ -210,4 +228,11 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except HikerError as err:
+        # A missing or rejected key is the most common failure. The troubleshooting
+        # table promises a readable line, not a stack trace.
+        logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
+        log.error("%s", err)
+        sys.exit(2)

@@ -44,11 +44,27 @@ CTA_PATTERNS = [
 ]
 # Standalone shouty token — how most code words actually appear in captions.
 CAPS_TOKEN = re.compile(r"\b([A-ZА-ЯЁ][A-ZА-ЯЁ0-9]{3,15})\b")
-# Words that are shouty but are not offers.
-CAPS_STOPWORDS = {
-    "INSTAGRAM", "REELS", "TIKTOK", "YOUTUBE", "TELEGRAM", "WHATSAPP", "DIRECT",
-    "МОСКВА", "РОССИЯ", "СПБ", "ЖКХ", "НДФЛ", "ИНН", "ОГРН", "ТОП", "НОВОСТИ",
-}
+# A CTA verb anywhere in the text is what licenses the bare-caps fallback below.
+CTA_VERB = re.compile(r"(?i:напиш|пиш|отправ|скинь|коммент|забирай|лови|жми|получ)", re.UNICODE)
+# Two tiers, because the two paths deserve different levels of trust.
+#
+# Tier 1 applies even to an explicit "напиши X": if the caption says "напиши в
+# ДИРЕКТ", the captured word is a channel, not an offer.
+CHANNEL_STOPWORD_PREFIXES = (
+    "DIRECT", "ДИРЕКТ", "INSTAGRAM", "TELEGRAM", "WHATSAPP", "ЛИЧК", "СООБЩЕНИ",
+    "КОММЕНТ", "ОТВЕТ",
+)
+# Tier 2 applies ONLY to the bare-caps fallback, where there is no verb vouching
+# for the word. Matched as PREFIXES: Russian is inflected, so a nominative-only
+# list filters МОСКВА but happily invents an offer called МОСКВЕ from the next
+# caption. Category words live here and NOT in tier 1 — "напиши ИПОТЕКА" is a
+# perfectly good code word, a bare shouted "ИПОТЕКА" is just a topic label.
+CAPS_STOPWORD_PREFIXES = CHANNEL_STOPWORD_PREFIXES + (
+    "REELS", "TIKTOK", "YOUTUBE", "MOSCOW", "RUSSIA", "SALE", "NEW",
+    "МОСКВ", "РОССИ", "ПИТЕР", "СПБ", "СОЧИ", "КРАСНОДАР", "ЖКХ", "НДФЛ", "ИНН",
+    "ОГРН", "ТОП", "НОВОСТ", "СРОЧНО", "ВНИМАНИ", "АКЦИ", "СКИДК", "ХИТ", "ВАЖНО",
+    "КВАРТИР", "НОВОСТРОЙ", "ИПОТЕК",
+)
 LEAD_MAGNETS = [
     "гайд", "чек-лист", "чеклист", "подборк", "разбор", "консультац", "база",
     "таблиц", "шаблон", "инструкц", "калькулятор", "смет", "план", "экскурс",
@@ -72,18 +88,29 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def is_stopword(token: str, prefixes: tuple[str, ...] = CAPS_STOPWORD_PREFIXES) -> bool:
+    """True when the token is a channel, place, hype word or category label."""
+    upper = token.upper()
+    return any(upper.startswith(prefix) for prefix in prefixes)
+
+
 def extract_code_word(text: str) -> str | None:
-    """Pull the code word a viewer is told to send, if there is one."""
+    """Pull the code word a viewer is told to send, if there is one.
+
+    Only the explicit "verb + WORD" forms are trusted here. The bare-caps
+    fallback lives in classify() behind a CTA-verb check, because on its own it
+    turns any shouted word — a city, "СРОЧНО", a brand — into an offer, and the
+    offer key is what the whole radar groups by. A key made of caption noise
+    makes offers appear and vanish between snapshots for no real reason.
+    """
     for pattern in CTA_PATTERNS:
         match = pattern.search(text)
         if match:
             token = match.group(1).upper()
-            if token not in CAPS_STOPWORDS:
+            # Only channel words are rejected here — the verb already vouched
+            # for this token being the thing the viewer must send.
+            if not is_stopword(token, CHANNEL_STOPWORD_PREFIXES):
                 return token
-    for token in CAPS_TOKEN.findall(text):
-        upper = token.upper()
-        if upper not in CAPS_STOPWORDS and not upper.isdigit():
-            return upper
     return None
 
 
@@ -92,12 +119,22 @@ def classify(text: str) -> tuple[str, str]:
     code_word = extract_code_word(text)
     if code_word:
         return code_word, "code_word"
+
+    # Lead magnets are checked before the loose fallback: "Скачай ЧЕКЛИСТ" is a
+    # lead magnet, not a code word named ЧЕКЛИСТ.
     lowered = text.lower()
     for magnet in LEAD_MAGNETS:
         if magnet in lowered:
             return f"магнит:{magnet}", "lead_magnet"
     if LINK_IN_BIO.search(text):
         return "ссылка-в-био", "link_in_bio"
+
+    # Last resort: a shouted token, but only when the caption actually asks for
+    # something. Without a CTA verb a capitalised word is just a capitalised word.
+    if CTA_VERB.search(text):
+        for token in CAPS_TOKEN.findall(text):
+            if not is_stopword(token):
+                return token.upper(), "code_word"
     return "no_cta", "none"
 
 
@@ -115,12 +152,16 @@ def snapshot_date(run_dir: Path) -> str:
 
 
 def do_extract(args: argparse.Namespace) -> int:
-    reels = json.loads((args.out / "top-reels.json").read_text(encoding="utf-8"))
+    source = args.out / "top-reels.json"
+    if not source.exists():
+        log.error("no top-reels.json in %s — run rank_reels.py first", args.out)
+        return 2
+    reels = json.loads(source.read_text(encoding="utf-8"))
     groups: dict[str, dict[str, Any]] = {}
 
     for reel in reels:
         text = reel.get("caption") or ""
-        if args.transcripts:
+        if args.transcripts and reel.get("code"):
             transcript = args.transcripts / reel["code"] / "transcript.txt"
             if transcript.exists():
                 text = f"{text}\n{transcript.read_text(encoding='utf-8', errors='replace')}"
@@ -149,6 +190,9 @@ def do_extract(args: argparse.Namespace) -> int:
             "median_views": round(statistics.median(group["views"]), 1),
             "total_views": sum(group["views"]),
             "first_posted": group["first_posted"],
+            # Seeded here, then carried forward by every later diff so an offer's
+            # true age accumulates instead of resetting each run.
+            "first_seen": group["first_posted"],
             "last_posted": group["last_posted"],
             "examples": sorted(group["reels"], key=lambda r: -r["spike"])[:5],
         })
@@ -166,31 +210,50 @@ def do_extract(args: argparse.Namespace) -> int:
 
 
 def do_diff(args: argparse.Namespace) -> int:
+    for run_dir in (args.previous, args.current):
+        if not (run_dir / "offers.json").exists():
+            log.error("no offers.json in %s — run `offers_diff.py extract --out %s` first", run_dir, run_dir)
+            return 2
     previous = json.loads((args.previous / "offers.json").read_text(encoding="utf-8"))
     current = json.loads((args.current / "offers.json").read_text(encoding="utf-8"))
     prev_by_key = {o["offer"]: o for o in previous["offers"]}
     cur_by_key = {o["offer"]: o for o in current["offers"]}
+
+    def born(offer: dict[str, Any]) -> str:
+        """When this offer was first observed, across the whole snapshot chain."""
+        return offer.get("first_seen") or offer["first_posted"]
 
     rows: list[dict[str, Any]] = []
     for key, offer in cur_by_key.items():
         before = prev_by_key.get(key)
         if not before:
             status, spike_delta, accounts_delta = "NEW", None, offer["n_accounts"]
+            first_seen = born(offer)
         else:
             spike_delta = round(offer["median_spike"] - before["median_spike"], 2)
             accounts_delta = offer["n_accounts"] - before["n_accounts"]
             spike_ratio = offer["median_spike"] / before["median_spike"] if before["median_spike"] else 99.0
+            # An offer being dropped by the accounts that ran it is the clearest
+            # death signal there is — louder than the spike, which stays flat
+            # right up to the end. Without this branch a 9 -> 2 collapse fell
+            # into the else and got labelled PEAK, i.e. the opposite of the truth.
+            collapsing = accounts_delta < 0 and abs(accounts_delta) >= 0.3 * max(before["n_accounts"], 1)
             if accounts_delta > 0 and spike_delta >= 0:
                 status = "RISING"
-            elif spike_ratio < args.fading_threshold:
+            elif collapsing or spike_ratio < args.fading_threshold:
                 status = "FADING"
             else:
                 status = "PEAK"
+            # Age accumulates: without this the recorded birth date can never be
+            # older than one diff interval, and offer lifetime is unmeasurable.
+            first_seen = min(born(before), born(offer))
+
+        offer["first_seen"] = first_seen
         rows.append({
             "offer": key, "status": status, "cta_type": offer["cta_type"],
             "n_accounts": offer["n_accounts"], "accounts_delta": accounts_delta,
             "median_spike": offer["median_spike"], "spike_delta": spike_delta,
-            "first_seen": (before or offer)["first_posted"], "last_posted": offer["last_posted"],
+            "first_seen": first_seen, "last_posted": offer["last_posted"],
             "example": offer["examples"][0]["url"] if offer["examples"] else "",
         })
 
@@ -200,8 +263,12 @@ def do_diff(args: argparse.Namespace) -> int:
                 "offer": key, "status": "DEAD", "cta_type": before["cta_type"],
                 "n_accounts": 0, "accounts_delta": -before["n_accounts"],
                 "median_spike": 0.0, "spike_delta": -before["median_spike"],
-                "first_seen": before["first_posted"], "last_posted": before["last_posted"], "example": "",
+                "first_seen": born(before), "last_posted": before["last_posted"], "example": "",
             })
+
+    # Persist the carried-forward birth dates so the NEXT diff inherits them too.
+    (args.current / "offers.json").write_text(
+        json.dumps(current, ensure_ascii=False, indent=2), encoding="utf-8")
 
     order = {"RISING": 0, "NEW": 1, "PEAK": 2, "FADING": 3, "DEAD": 4}
     rows.sort(key=lambda r: (order.get(r["status"], 9), -r["n_accounts"]))

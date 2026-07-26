@@ -32,7 +32,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from hiker import Hiker, paginate, unwrap
+from hiker import Hiker, HikerError, paginate, unwrap
 
 log = logging.getLogger("seed-pool")
 
@@ -57,9 +57,15 @@ def normalise(text: str) -> str:
 
 
 def keyword_hits(text: str, keywords: list[str]) -> list[str]:
-    """Return which keywords appear in the text (substring match)."""
-    haystack = normalise(text)
-    return [kw for kw in keywords if normalise(kw).strip() in haystack]
+    """Return which keywords appear in the text (substring match).
+
+    A trailing space in a config keyword is meaningful: `"жк "` is written that
+    way to mean "the word ЖК", not "anything starting with ЖК" (which would drag
+    in ЖКХ). The haystack is padded so that boundary still matches at the very
+    end of a name.
+    """
+    haystack = f" {normalise(text)} "
+    return [kw for kw in keywords if normalise(kw) in haystack]
 
 
 class Pool:
@@ -85,13 +91,21 @@ class Pool:
         self.seen += 1
 
         surface = f"{username} {user.get('full_name', '')}"
-        if keyword_hits(surface, negatives):
-            self.rejected_negative += 1
-            return False
-
         hits = keyword_hits(surface, keywords)
-        if free_filter and not hits:
-            return False
+
+        if free_filter:
+            # Negative keywords only police accounts that the machine proposed.
+            # A hand-picked seed is the user's judgement and outranks the filter:
+            # a broker who also mentions renovations is still a broker, and
+            # silently deleting him from the base he spent an evening building
+            # would undermine the whole point of collecting it by hand.
+            if keyword_hits(surface, negatives):
+                self.rejected_negative += 1
+                return False
+            if not hits:
+                return False
+        elif keyword_hits(surface, negatives):
+            log.info("keeping @%s despite a negative keyword (came from %s)", username, source)
 
         existing = self.items.get(pk)
         if existing:
@@ -164,7 +178,7 @@ def main() -> int:
     seeds: list[str] = []
     if args.seed_file and args.seed_file.exists():
         seeds = [line.strip().lstrip("@") for line in args.seed_file.read_text(encoding="utf-8").splitlines()
-                 if line.strip() and not line.startswith("#")]
+                 if line.strip() and not line.strip().startswith("#")]
         log.info("manual seed list: %d accounts", len(seeds))
     elif "manual" in sources or "following" in sources:
         log.warning("no --seed-file given; the manual base is what makes this pipeline work (see SKILL.md)")
@@ -199,7 +213,7 @@ def main() -> int:
                 break
 
     # --- followers of reference accounts -------------------------------------
-    if "followers" in sources:
+    if "followers" in sources and pool.seen < args.max_candidates:
         for username in config.get("reference_accounts", []):
             try:
                 user_id = resolve_user_id(client, username)
@@ -212,7 +226,7 @@ def main() -> int:
                 log.warning("followers @%s failed: %s", username, err)
 
     # --- hashtags -------------------------------------------------------------
-    if "hashtag" in sources:
+    if "hashtag" in sources and pool.seen < args.max_candidates:
         for tag in config.get("hashtags", []):
             try:
                 info = client.get("/v2/hashtag/by/name", {"name": tag})
@@ -229,7 +243,7 @@ def main() -> int:
                 log.warning("hashtag #%s failed: %s", tag, err)
 
     # --- search ---------------------------------------------------------------
-    if "search" in sources:
+    if "search" in sources and pool.seen < args.max_candidates:
         for query in config.get("search_queries", []):
             for path in ("/v2/fbsearch/reels", "/v2/fbsearch/accounts"):
                 try:
@@ -240,12 +254,32 @@ def main() -> int:
                 except Exception as err:
                     log.warning("search '%s' on %s failed: %s", query, path, err)
 
-    candidates = sorted(pool.items.values(), key=lambda c: (-len(c["sources"]), c["username"]))
+    # A manual seed enters keyed by username (its numeric id is unknown until a
+    # paid lookup) while the snowball finds the same person keyed by pk. Left
+    # alone they are two pool entries: the funnel double-counts, the multi-source
+    # ranking never credits manual+following, and qualification pays twice for
+    # one account. Merging on username here costs nothing and fixes all three.
+    merged: dict[str, dict[str, Any]] = {}
+    for candidate in pool.items.values():
+        key = candidate["username"].lower()
+        existing = merged.get(key)
+        if not existing:
+            merged[key] = candidate
+            continue
+        existing["sources"] = sorted(set(existing["sources"]) | set(candidate["sources"]))
+        existing["matched"] = sorted(set(existing["matched"]) | set(candidate["matched"]))
+        # Prefer the numeric id — it saves a lookup and never goes stale.
+        if existing["pk"].startswith("manual:") and not candidate["pk"].startswith("manual:"):
+            existing["pk"] = candidate["pk"]
+            existing["full_name"] = candidate["full_name"] or existing["full_name"]
+
+    candidates = sorted(merged.values(), key=lambda c: (-len(c["sources"]), c["username"]))
     (args.out / "pool.json").write_text(json.dumps(candidates, ensure_ascii=False, indent=2), encoding="utf-8")
 
     stats = {
         "candidates_seen": pool.seen,
         "passed_free_filter": len(candidates),
+        "merged_duplicates": len(pool.items) - len(candidates),
         "rejected_by_negative_keywords": pool.rejected_negative,
         "requests_used": client.requests_used,
         "estimated_cost_usd": round(client.spent_usd, 4),
@@ -261,4 +295,11 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except HikerError as err:
+        # A missing or rejected key is the most common failure. The troubleshooting
+        # table promises a readable line, not a stack trace.
+        logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
+        log.error("%s", err)
+        sys.exit(2)
