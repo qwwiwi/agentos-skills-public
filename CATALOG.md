@@ -50,6 +50,7 @@ Production-tested скиллы для Claude Code. Здесь — sanitize-ве�
 | `youtube-producer` | YouTube long-form | available |
 | `youtube-thumbnail` | YouTube-обложки 1920×1080: лицо из кадров + gpt-image + наложение текста/шрифта | available |
 | `threads-content` | Контент для Threads | available |
+| `reels-analytics-for-brokers` | Радар восходящих офферов в Instagram: пул конкурентов, ранжирование рилсов по всплеску, разбор хуков, динамика между срезами. Образец под свою нишу | available |
 
 ## AI-генерация изображений и видео
 

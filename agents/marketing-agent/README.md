@@ -19,6 +19,7 @@
 - [`content-engine`](../../skills/content-engine/) — TOV-aware двигатель контента, главный для постов
 - [`instagram-superpower`](../../skills/instagram-superpower/) — посты и карусели для Instagram
 - [`reels`](../../skills/reels/) — сценарии Reels в 5 форматах
+- [`reels-analytics-for-brokers`](../../skills/reels-analytics-for-brokers/) — радар восходящих офферов в Instagram по своей нише
 - [`youtube-producer`](../../skills/youtube-producer/) — YouTube long-form
 - [`threads-content`](../../skills/threads-content/) — контент для Threads
 - [`twitter`](../../skills/twitter/) — чтение X/Twitter (для ресерча) + создание тредов
