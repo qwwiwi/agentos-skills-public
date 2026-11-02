@@ -34,6 +34,7 @@ Production-tested скиллы для Claude Code. Здесь — sanitize-ве�
 | `dev-pipeline` | Оркестрация разработки на сервере | available |
 | `server-doctor` | Аудит и починка Linux/macOS | available |
 | `agent-browser` | Управление настоящим браузером из агента: открыть, кликнуть, заполнить форму, скриншот, вытащить данные, проверить веб-приложение. Обёртка над CLI agent-browser (vercel-labs, Apache-2.0) | available |
+| `remote-agent-desktop` | Рабочий стол Ubuntu на сервере под управлением агента: XFCE + xrdp + Chrome, accessibility и agent-desktop (vercel-labs), цикл snapshot → действие → snapshot из Codex по SSH или Hermes на сервере | available |
 
 ## Контент и копирайтинг
 
