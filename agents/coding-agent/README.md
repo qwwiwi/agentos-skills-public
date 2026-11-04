@@ -28,6 +28,10 @@
 
 - [`cross-review`](../../skills/cross-review/) — двойное ревью двумя моделями параллельно
 
+### Безопасность
+
+- [`security-audit`](../../skills/security-audit/) – мульти-агентный аудит исходного кода (Cloudflare, MIT), только исходники, дорогой: начинай с профиля `quick`
+
 ### DevOps
 
 - [`dev-pipeline`](../../skills/dev-pipeline/) — оркестрация разработки на удалённом сервере

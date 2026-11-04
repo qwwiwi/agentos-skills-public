@@ -35,6 +35,7 @@ Production-tested скиллы для Claude Code. Здесь — sanitize-ве�
 | `server-doctor` | Аудит и починка Linux/macOS | available |
 | `agent-browser` | Управление настоящим браузером из агента: открыть, кликнуть, заполнить форму, скриншот, вытащить данные, проверить веб-приложение. Обёртка над CLI agent-browser (vercel-labs, Apache-2.0) | available |
 | `remote-agent-desktop` | Рабочий стол Ubuntu на сервере под управлением агента: XFCE + xrdp + Chrome, accessibility и agent-desktop (vercel-labs), цикл snapshot → действие → snapshot из Codex по SSH или Hermes на сервере | available |
+| `security-audit` | Мульти-агентный аудит безопасности исходного кода от Cloudflare (MIT), 6 фаз: разведка, охота за уязвимостями, валидация кандидатов, `findings.json`, независимая проверка, отчёты. Подходит перед релизом и для кода с платежами, вебхуками, ботами. Проверяет только исходники: живые серверы и эндпоинты не трогает. Для валидаторов нужен Node. Дорогой: запускает много агентов, начни с профиля `quick` и одного репозитория. Триггеры: «security audit», «аудит безопасности», «найди уязвимости», «pen test». Установка: скопировать папку или `npx skills add https://github.com/cloudflare/security-audit-skill --skill security-audit`. Источник и версия: `NOTICE.md` | available |
 
 ## Контент и копирайтинг
 
