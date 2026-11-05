@@ -1,0 +1,95 @@
+{
+  "version": 1,
+  "notes": "EXAMPLE registry. Copy to brands.json and replace every path with your own files (absolute paths or ~). 'references' = default refs pulled into a brief by \"preset\"; 'library' = other approved files (informational). Never put frames from a _rejected/ folder here.",
+  "presets": {
+    "my-face": {
+      "description": "Approved face refs of the author (eyes fully open, direct gaze)",
+      "references": [
+        {
+          "path": "~/brand-assets/face/main.jpg",
+          "role": "face",
+          "note": "main face reference"
+        },
+        {
+          "path": "~/brand-assets/face/smile.jpg",
+          "role": "face",
+          "note": "smiling"
+        }
+      ],
+      "library": [
+        {
+          "path": "~/brand-assets/face/casual.jpg",
+          "role": "face",
+          "note": "casual outfit"
+        }
+      ],
+      "style_notes": [],
+      "avoid": []
+    },
+    "youtube-dark": {
+      "description": "YouTube covers: 2 face refs + 2 reference covers (style) + product logo",
+      "references": [
+        {
+          "path": "~/brand-assets/face/main.jpg",
+          "role": "face",
+          "note": "main"
+        },
+        {
+          "path": "~/brand-assets/face/smile.jpg",
+          "role": "face",
+          "note": "smiling"
+        },
+        {
+          "path": "~/brand-assets/covers/ref-01.jpg",
+          "role": "style",
+          "note": "dark + yellow box cover"
+        },
+        {
+          "path": "~/brand-assets/covers/ref-02.jpg",
+          "role": "style",
+          "note": "dark + yellow box cover"
+        },
+        {
+          "path": "~/brand-assets/logos/product-logo.png",
+          "role": "logo",
+          "note": "product logo"
+        }
+      ],
+      "style_notes": [
+        "Copy the exact visual style of the style reference covers: solid near-black background, heavy bold headline with a bright yellow highlight box on the key word, brand label top-left.",
+        "Palette: accent #D97757, cream #F3EEE3, near-black #0A0806.",
+        "The face is LARGE and close-up on one side, the headline on the other; readable at 320x180."
+      ],
+      "avoid": [
+        "arrow symbols in text (they garble)",
+        "watermarks"
+      ]
+    },
+    "my-brand": {
+      "description": "Brand posts and banners: logo + 2 approved banners as style",
+      "references": [
+        {
+          "path": "~/brand-assets/logos/brand-logo.png",
+          "role": "logo",
+          "note": "brand logo"
+        },
+        {
+          "path": "~/brand-assets/banners/banner-01.png",
+          "role": "style",
+          "note": "approved banner"
+        },
+        {
+          "path": "~/brand-assets/banners/banner-02.png",
+          "role": "style",
+          "note": "approved banner"
+        }
+      ],
+      "style_notes": [
+        "Keep the brand palette and typography of the style references."
+      ],
+      "avoid": [
+        "watermarks"
+      ]
+    }
+  }
+}

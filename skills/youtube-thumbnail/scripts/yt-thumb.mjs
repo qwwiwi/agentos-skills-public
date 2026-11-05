@@ -90,7 +90,7 @@ let chromium;
 for (const p of ["playwright", "/opt/homebrew/lib/node_modules/playwright"]) { try { ({ chromium } = require(p)); break; } catch (_) {} }
 if (!chromium) { console.error("ERR: playwright not found"); process.exit(1); }
 const fs = require("node:fs");
-const glob = "/Users/jasonqwwen/Library/Caches/ms-playwright";
+const glob = require("node:os").homedir() + "/Library/Caches/ms-playwright";
 let SHELL = process.env.SHELL_CHROME;
 if (!SHELL) { try { for (const d of fs.readdirSync(glob)) if (d.startsWith("chromium_headless_shell")) { SHELL = `${glob}/${d}/chrome-headless-shell-mac-arm64/chrome-headless-shell"`.replace(/"$/, ""); } } catch (_) {} }
 
