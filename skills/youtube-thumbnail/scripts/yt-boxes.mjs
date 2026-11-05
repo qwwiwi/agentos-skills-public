@@ -94,7 +94,7 @@ const require = createRequire(import.meta.url);
 let chromium;
 for (const p of ["playwright", "/opt/homebrew/lib/node_modules/playwright"]) { try { ({ chromium } = require(p)); break; } catch (_) {} }
 if (!chromium) { console.error("ERR: playwright not found"); process.exit(1); }
-const nfs = require("node:fs"); const base = "/Users/jasonqwwen/Library/Caches/ms-playwright"; let SHELL = process.env.SHELL_CHROME;
+const nfs = require("node:fs"); const base = require("node:os").homedir() + "/Library/Caches/ms-playwright"; let SHELL = process.env.SHELL_CHROME;
 if (!SHELL) { try { for (const d of nfs.readdirSync(base)) if (d.startsWith("chromium_headless_shell")) SHELL = `${base}/${d}/chrome-headless-shell-mac-arm64/chrome-headless-shell`; } catch (_) {} }
 (async () => {
   const b = await chromium.launch(SHELL && existsSync(SHELL) ? { executablePath: SHELL } : {});

@@ -1,0 +1,20 @@
+telegram-chip
+Copyright (c) 2026 EdgeLab / AgentOS by Dashi Eshiev
+
+This folder contains code derived from telegram-mcp
+(https://github.com/chigwell/telegram-mcp), Copyright (c) its authors
+(chigwell, l1v0n1 and contributors), licensed under the Apache License,
+Version 2.0. A copy of that license is in LICENSE-APACHE-2.0 in this folder.
+
+Files derived from telegram-mcp (modified from an earlier upstream version):
+- main.py                     (Telegram MCP server)
+- session_string_generator.py (session string helper)
+- pyproject.toml              (project metadata, keeps the upstream authors
+                               and the Apache-2.0 licence declaration)
+
+These files remain under the Apache License, Version 2.0, and have been
+modified in this repository.
+
+All other files in this folder (api.py, telegram_core.py, media_info.py,
+telegram_client.py, tests, examples and documentation) are original work
+distributed under the MIT License of this repository (see /LICENSE).

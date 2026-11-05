@@ -1,0 +1,48 @@
+{
+  "type": "youtube-cover",
+  "preset": "youtube-dark",
+  "preset_replace_roles": [],
+  "purpose": "High-CTR YouTube thumbnail for a video about building a team of AI agents with Claude Code",
+  "placement": "YouTube video cover, must read at 320x180 in the feed",
+  "route": "subscription",
+  "quality": "high",
+  "aspect": "landscape",
+  "size": "",
+  "api_model": "",
+  "api_owner_ok": false,
+  "final_size": "1920x1080",
+  "scene": "Solid near-black background with faint terminal-window outlines, code texture and a clay-orange Claude asterisk glow behind the person",
+  "subject": "The man from the face references in his black suit, shown LARGE chest-up and close-up on the RIGHT, sharp, looking straight at the camera",
+  "details": "Warm clay-orange rim light on the face, crisp high-contrast edges",
+  "style": "",
+  "no_text": false,
+  "text": [
+    {
+      "content": "АРМИЯ АГЕНТОВ",
+      "position": "left half, two lines, large",
+      "typography": "heavy bold condensed sans, all caps, cream white; the word АГЕНТОВ inside a bright yellow highlight box with black text",
+      "kind": "headline"
+    },
+    {
+      "content": "CLAUDE CODE",
+      "position": "small label top-left",
+      "typography": "clay-orange mono caps",
+      "kind": "label"
+    }
+  ],
+  "references": [],
+  "references_none_reason": "",
+  "avoid": [
+    "any text other than the two strings"
+  ],
+  "preserve": [
+    "the real face, glasses and hair from the face references"
+  ],
+  "extra": {
+    "headline": "АРМИЯ АГЕНТОВ",
+    "highlight_word": "АГЕНТОВ",
+    "face_emotion": "confident smile with teeth, energetic",
+    "face_side": "right",
+    "readability_320": "yes"
+  }
+}

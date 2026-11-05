@@ -10,7 +10,7 @@ const tmp = join(tmpdir(), "rast-" + Date.now() + ".html");
 writeFileSync(tmp, html);
 const require = createRequire(import.meta.url);
 let chromium; for (const p of ["playwright", "/opt/homebrew/lib/node_modules/playwright"]) { try { ({ chromium } = require(p)); break; } catch (_) {} }
-const fs = require("node:fs"); const base = "/Users/jasonqwwen/Library/Caches/ms-playwright"; let SHELL;
+const fs = require("node:fs"); const base = require("node:os").homedir() + "/Library/Caches/ms-playwright"; let SHELL;
 try { for (const d of fs.readdirSync(base)) if (d.startsWith("chromium_headless_shell")) SHELL = `${base}/${d}/chrome-headless-shell-mac-arm64/chrome-headless-shell`; } catch (_) {}
 const b = await chromium.launch(SHELL && existsSync(SHELL) ? { executablePath: SHELL } : {});
 const ctx = await b.newContext({ viewport: { width: size, height: size }, deviceScaleFactor: 1 });

@@ -91,7 +91,7 @@ journalctl -u telegram-chip-api -n 50
 ```
 
 **Частые причины:**
-- Нет `.env` в `/opt/telegram-chip/`
+- Нет `.env` в папке скилла
 - Невалидный session string
 - Порт 8080 занят: `ss -tlnp | grep :8080`
 - Lock файл остался: `rm /tmp/telegram-core.lock`
@@ -101,14 +101,13 @@ journalctl -u telegram-chip-api -n 50
 ## Как сгенерировать новую сессию
 
 ```bash
-cd /opt/clawd-workspace/skills/secret/telegram-chip
+cd ~/.claude/skills/telegram-chip
 python3 session_string_generator.py
 ```
 
 Скрипт запросит код подтверждения из Telegram. После генерации обновить:
-- `/opt/telegram-chip/.env`
-- `/opt/clawd-workspace/.env` (TELETHON_SESSION_STRING)
-- `/opt/clawd-workspace/skills/secret/telegram-chip/.env`
+- `.env` в папке скилла
+- все остальные `.env`, где лежит копия session string
 
 Затем:
 ```bash

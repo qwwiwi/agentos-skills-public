@@ -86,7 +86,7 @@
 ### Точки входа и их защита
 
 1. **HTTP API через Python клиент** (`telegram_client.py`)
-   - Используется скриптами в `clawd/skills/telegram-assistant/scripts/`
+   - Используется твоими скриптами поверх API
    - Защита: автоматические задержки, проверка лимитов, обработка ошибок
 
 2. **HTTP API сервер** (`telegram_core.py`)
@@ -185,7 +185,7 @@ except TelegramClientError as e:
 
 ## Обновление скриптов
 
-Все скрипты в `clawd/skills/telegram-assistant/scripts/` должны:
+Все скрипты, которые ходят в API через `telegram_client.py`, должны:
 1. Импортировать `RateLimitError` и `FloodWaitError`: `from telegram_client import ..., RateLimitError, FloodWaitError`
 2. Обрабатывать обе ошибки (можно вместе, так как у них одинаковый интерфейс)
 
