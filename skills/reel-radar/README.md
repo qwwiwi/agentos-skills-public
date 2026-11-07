@@ -22,12 +22,13 @@ npx skills add github.com/qwwiwi/agentos-skills-public --skill reel-radar
 |---|---|---|
 | Python 3.9+ | скрипты, только стандартная библиотека | https://python.org |
 | FFmpeg | сжатие видео и извлечение аудио | https://ffmpeg.org |
-| `HIKER_KEY` | данные Instagram | https://hikerapi.com |
+| `LOORE_API_KEY` | данные Instagram через Loore | https://app.loore.ai → Настройки → API и MCP, документация https://docs.loore.ai |
 | `GROQ_KEY` | транскрипция | https://console.groq.com |
 | `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` | доставка артефактов, опционально | @BotFather |
 
 ```bash
-export HIKER_KEY="..."
+export LOORE_API_KEY="..."
+export LOORE_SPEND_AUTHORIZATION_ID="..."   # бюджет расхода, см. SKILL.md
 export GROQ_KEY="..."
 export TARGET_USER="your_account"   # эталонный аккаунт ниши, без @
 ```
@@ -77,10 +78,10 @@ templates/                    HTML-шаблоны дашборда и ТЗ
 
 ## Ограничения
 
-Без `HIKER_KEY` не работает ничего, без `GROQ_KEY` не будет транскриптов, а
+Без `LOORE_API_KEY` не работает ничего, без `GROQ_KEY` не будет транскриптов, а
 значит ТЗ выйдут пустыми болванками. Доступ к данным Instagram неофициальный:
-сервис сторонний, формы ответов меняются, закрытые аккаунты не отдают подписки.
-Досматриваемость, охваты и сохранения снаружи недоступны в принципе. Скилл
+данные берутся из Loore (https://docs.loore.ai), закрытые аккаунты не отдают подписки.
+Досматриваемость и охваты снаружи недоступны в принципе. Скилл
 только читает публичное и ничего не публикует, но само использование
 неофициального доступа противоречит ToS Instagram — не подставляй сюда аккаунт,
 который жалко потерять. Полный разбор — в `SKILL.md`.

@@ -9,7 +9,10 @@ from __future__ import annotations
 import json
 import os
 import sys
+from datetime import datetime
 from pathlib import Path
+
+import _loore
 
 SKILL_ROOT = Path(__file__).resolve().parent.parent
 CONFIG_FILE = SKILL_ROOT / "config" / "defaults.json"
@@ -48,9 +51,35 @@ def target_user(cli_value: str | None = None) -> str:
 
 
 def api_key() -> str:
-    """Read the data-provider key from the environment (HIKER_KEY or HIKER_API_KEY)."""
-    key = (os.environ.get("HIKER_KEY") or os.environ.get("HIKER_API_KEY") or "").strip()
-    if not key:
-        print("HIKER_KEY env var is empty — export your key from https://hikerapi.com", file=sys.stderr)
-        raise SystemExit(3)
-    return key
+    """Read the Loore key from $LOORE_API_KEY (exits 3 with a hint when empty)."""
+    return _loore.api_key()
+
+
+def iso_to_epoch(value: str | None) -> float:
+    """Convert Loore's ISO-8601 takenAt to a unix timestamp (0.0 when absent)."""
+    if not value:
+        return 0.0
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        return 0.0
+
+
+def reel_row(item: dict) -> dict:
+    """Map one Loore media row (ig_user_reels / ig_search) to the reel shape the pipeline uses.
+
+    Loore omits a count it did not receive instead of zero-filling it; the
+    pipeline's numeric fields keep their 0 fallback.
+    """
+    code = item.get("code", "")
+    return {
+        "code": code,
+        "pk": str(item.get("id", "")),
+        "caption": item.get("caption") or " ".join(f"#{t}" for t in item.get("hashtags") or []),
+        "play_count": int(item.get("views") or 0),
+        "like_count": int(item.get("likes") or 0),
+        "comment_count": int(item.get("comments") or 0),
+        "video_duration": float(item.get("durationSec") or 0),
+        "taken_at": iso_to_epoch(item.get("takenAt")),
+        "url": item.get("url") or (f"https://www.instagram.com/reel/{code}/" if code else ""),
+    }

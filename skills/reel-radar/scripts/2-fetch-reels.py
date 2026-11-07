@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
-"""Fetch top-N reels per followed account within last N days.
+"""Fetch top-N reels per followed account within last N days via Loore.
+
+Per account: one ig_user_reels page (latest reels with views/likes/comments and
+caption). Accounts with at least one reel in the window get one ig_profile call
+for bio and follower count (ig_following rows do not carry them); accounts
+without fresh reels cost no profile call. Private accounts are skipped.
 
 Usage: python3 2-fetch-reels.py <output_dir> [--days 7] [--top 3] [--parallel 8]
-Reads: <output_dir>/state/following.json, $HIKER_KEY (or $HIKER_API_KEY)
+Reads: <output_dir>/state/following.json, $LOORE_API_KEY, optional $LOORE_SPEND_AUTHORIZATION_ID
 Writes: <output_dir>/state/reels-raw.json
 """
 from __future__ import annotations
@@ -12,17 +17,16 @@ import asyncio
 import json
 import logging
 import sys
-import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-import urllib.request
-import urllib.parse
-import urllib.error
-
-from _config import api_key
+import _loore
+from _config import api_key, reel_row
 
 log = logging.getLogger("reel-radar.2")
+
+# One page of the latest reels; a 7-day window rarely holds more.
+REELS_PER_ACCOUNT = 20
 
 
 def parse_args() -> argparse.Namespace:
@@ -34,46 +38,54 @@ def parse_args() -> argparse.Namespace:
     return p.parse_args()
 
 
+def _subject(user: dict) -> dict:
+    """Address an account by id when known (cheaper), else by handle."""
+    return {"user_id": user["pk"]} if user.get("pk") else {"username": user["username"]}
+
+
+def _sync_fetch_clips(user: dict, key: str) -> list[dict]:
+    result = _loore.call(
+        "ig-user-reels",
+        {**_subject(user), "limit": REELS_PER_ACCOUNT, "include_caption": True},
+        key=key,
+    )
+    return [reel_row(it) for it in result.get("items") or [] if it.get("code")]
+
+
+def _sync_fetch_profile(user: dict, key: str) -> dict:
+    result = _loore.call("ig-profile", _subject(user), key=key)
+    return result.get("profile") or {}
+
+
 async def fetch_clips(session_sem: asyncio.Semaphore, loop: asyncio.AbstractEventLoop,
                      user: dict, key: str, cutoff_ts: float, top: int) -> list[dict]:
+    """Return the account's top reels in the window, enriched with bio and followers."""
+    if user.get("is_private"):
+        return []
     async with session_sem:
         try:
-            clips = await loop.run_in_executor(None, _sync_fetch_clips, user["pk"], key)
-        except Exception as e:
+            clips = await loop.run_in_executor(None, _sync_fetch_clips, user, key)
+        except _loore.LooreError as e:
+            if e.fatal and e.http_status != 403:
+                raise
             log.warning("clips fetch failed for @%s: %s", user.get("username"), e)
             return []
     fresh = [c for c in clips if c["taken_at"] >= cutoff_ts]
+    if not fresh:
+        return []
     fresh.sort(key=lambda c: c["play_count"], reverse=True)
-    return [{**c, "author": user["username"], "author_bio": user.get("biography", ""),
-             "author_followers": user.get("follower_count", 0)} for c in fresh[:top]]
-
-
-def _sync_fetch_clips(user_id: str, key: str) -> list[dict]:
-    q = urllib.parse.urlencode({"user_id": user_id})
-    req = urllib.request.Request(
-        f"https://api.instagrapi.com/v2/user/clips?{q}",
-        headers={"x-access-key": key},
-    )
-    with urllib.request.urlopen(req, timeout=30) as r:
-        data = json.loads(r.read().decode("utf-8", errors="replace"))
-    items = data.get("items") or data.get("response", {}).get("items") or []
-    out: list[dict] = []
-    for it in items:
-        media = it.get("media") or it
-        code = media.get("code", "")
-        caption = (media.get("caption") or {}).get("text", "") if isinstance(media.get("caption"), dict) else (media.get("caption_text") or "")
-        out.append({
-            "code": code,
-            "pk": str(media.get("pk") or media.get("id", "")),
-            "caption": caption,
-            "play_count": int(media.get("play_count") or media.get("view_count") or 0),
-            "like_count": int(media.get("like_count") or 0),
-            "comment_count": int(media.get("comment_count") or 0),
-            "video_duration": float(media.get("video_duration") or 0),
-            "taken_at": float(media.get("taken_at") or 0),
-            "url": f"https://www.instagram.com/reel/{code}/" if code else "",
-        })
-    return out
+    bio, followers = user.get("biography", ""), int(user.get("follower_count") or 0)
+    if not bio and not followers:
+        async with session_sem:
+            try:
+                prof = await loop.run_in_executor(None, _sync_fetch_profile, user, key)
+                bio, followers = prof.get("biography", ""), int(prof.get("followers") or 0)
+            except _loore.LooreError as e:
+                if e.fatal and e.http_status != 403:
+                    raise
+                log.warning("profile fetch failed for @%s: %s", user.get("username"), e)
+    return [{**c, "author": user["username"], "author_bio": bio,
+             "author_followers": followers} for c in fresh[:top]]
 
 
 async def main_async(args: argparse.Namespace) -> int:
@@ -92,6 +104,12 @@ async def main_async(args: argparse.Namespace) -> int:
         try:
             r = await coro
             results.append(r)
+        except _loore.LooreError as e:
+            if e.fatal:
+                log.error("%s", e.hint())
+                return 1
+            log.warning("task %d failed: %s", i, e)
+            results.append([])
         except Exception as e:
             log.warning("task %d failed: %s", i, e)
             results.append([])

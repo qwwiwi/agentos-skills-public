@@ -15,55 +15,34 @@ import argparse
 import json
 import logging
 import sys
-import urllib.parse
-import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from _config import api_key, target_user
+import _loore
+from _config import api_key, reel_row, target_user
 
 log = logging.getLogger("reel-radar.7")
 
-
-def http_get(url: str, headers: dict[str, str]) -> dict:
-    req = urllib.request.Request(url, headers=headers)
-    with urllib.request.urlopen(req, timeout=30) as r:
-        return json.loads(r.read().decode("utf-8", errors="replace"))
+# 50 is the ig_user_reels page maximum; at most this many pages are read.
+PAGE_SIZE = 50
+MAX_PAGES = 3
 
 
-def fetch_user_id(username: str, key: str) -> str:
-    data = http_get(
-        f"https://api.instagrapi.com/v2/user/by/username?username={username}",
-        {"x-access-key": key},
-    )
-    return str(data.get("user", {}).get("pk") or data.get("pk") or "")
+def fetch_clips(username: str, key: str, cutoff_ts: float) -> list[dict]:
+    """Read the account's reels newest-first until the window ends.
 
-
-def fetch_clips(user_id: str, key: str) -> list[dict]:
-    q = urllib.parse.urlencode({"user_id": user_id})
-    data = http_get(
-        f"https://api.instagrapi.com/v2/user/clips?{q}",
-        {"x-access-key": key},
-    )
-    return data.get("items") or data.get("response", {}).get("items") or []
-
-
-def normalize(items: list[dict]) -> list[dict]:
-    out = []
-    for it in items:
-        m = it.get("media") or it
-        code = m.get("code", "")
-        cap = m.get("caption")
-        caption = cap.get("text", "") if isinstance(cap, dict) else (m.get("caption_text") or "")
-        out.append({
-            "code": code,
-            "caption": caption,
-            "play_count": int(m.get("play_count") or m.get("view_count") or 0),
-            "like_count": int(m.get("like_count") or 0),
-            "comment_count": int(m.get("comment_count") or 0),
-            "taken_at": float(m.get("taken_at") or 0),
-            "url": f"https://www.instagram.com/reel/{code}/" if code else "",
-        })
+    Pinned and trial reels are left out: a pin is usually an old hit and a
+    trial was shown to non-followers only, so neither describes the baseline.
+    """
+    out: list[dict] = []
+    body = {"username": username, "limit": PAGE_SIZE, "include_caption": True}
+    for it in _loore.paginate("ig-user-reels", body, key=key, max_pages=MAX_PAGES):
+        if it.get("isPinned") or it.get("isTrial") or not it.get("code"):
+            continue
+        row = reel_row(it)
+        if row["taken_at"] and row["taken_at"] < cutoff_ts:
+            break
+        out.append(row)
     return out
 
 
@@ -79,11 +58,13 @@ def main() -> int:
     key = api_key()
     username = target_user(args.username)
 
-    uid = fetch_user_id(username, key)
-    log.info("@%s user_id=%s", username, uid)
-
-    items = normalize(fetch_clips(uid, key))
     cutoff = (datetime.now(timezone.utc) - timedelta(days=args.days)).timestamp()
+    try:
+        items = fetch_clips(username, key, cutoff)
+    except _loore.LooreError as e:
+        log.error("%s", e.hint())
+        return 1
+    log.info("@%s: %d reels read", username, len(items))
     fresh = [x for x in items if x["taken_at"] >= cutoff]
     fresh.sort(key=lambda r: r["play_count"], reverse=True)
     top = fresh[: args.top]
