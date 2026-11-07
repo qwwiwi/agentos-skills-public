@@ -32,6 +32,12 @@ FORMULA_LABELS = {
 }
 
 
+def fmt_er(reel: dict) -> str:
+    """ER cell: a dash when the author hid the likes (no ER is computed then)."""
+    er = reel.get("engagement_rate")
+    return "—" if er is None else str(er)
+
+
 def fmt_num(n: float | int) -> str:
     n = int(n)
     if n >= 1_000_000:
@@ -87,7 +93,8 @@ def main() -> int:
     tpl = (SKILL_ROOT / "templates" / "dashboard.html").read_text()
 
     views = [int(r.get("play_count", 0)) for r in reels]
-    ers = [float(r.get("engagement_rate", 0)) for r in reels]
+    # Reels with hidden likes carry engagement_rate None and stay out of the median.
+    ers = [float(r["engagement_rate"]) for r in reels if r.get("engagement_rate") is not None]
     authors = Counter(r.get("author", "") for r in reels)
     formulas = Counter(detect_formula_from_meta(r) for r in reels)
 
@@ -104,7 +111,7 @@ def main() -> int:
             f'<div class="meta-row"><span class="pill">{html.escape(theme)}</span></div></td>'
             f'<td class="num">{fmt_num(r.get("play_count",0))}</td>'
             f'<td class="num">{fmt_num(r.get("comment_count",0))}</td>'
-            f'<td class="num">{r.get("engagement_rate",0)}</td>'
+            f'<td class="num">{fmt_er(r)}</td>'
             f'<td>{html.escape(formula)}</td>'
             f'<td><a href="{html.escape(r.get("url",""))}" target="_blank">open</a></td>'
             "</tr>"

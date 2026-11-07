@@ -170,9 +170,10 @@ def iter_users(rows: list[Any]) -> list[dict[str, Any]]:
 def must_stop(err: Exception) -> bool:
     """True for refusals that end the whole run (key, credits, spend approval).
 
-    A 403 is left per-source: it usually means that one account is private.
+    Only a 403 ``private_account`` is left per-source (that one account is closed);
+    any other 403 (e.g. ``scope_forbidden``) means the key cannot do this at all.
     """
-    return isinstance(err, LooreError) and err.fatal and err.http_status != 403
+    return isinstance(err, LooreError) and err.fatal and not err.private_account
 
 
 def harvest_listing(client: Client, pool: Pool, method: str, body: dict[str, Any], source: str,

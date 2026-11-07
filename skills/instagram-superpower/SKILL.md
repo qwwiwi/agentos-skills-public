@@ -98,11 +98,15 @@ One key, two doors. Create the key at https://app.loore.ai → Настройк�
 **REST** (scripts) — the same operation, MCP tool `ig_profile` = `POST /v1/ig-profile`:
 
 ```bash
+# The key goes in through stdin (-H @-), so it never shows up in argv / ps.
 curl -s -X POST https://mcp.loore.ai/v1/ig-profile \
-  -H "Authorization: Bearer $LOORE_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"username":"<username>"}'
+  -H @- -H "Content-Type: application/json" \
+  -d "{\"username\":\"<username>\",\"spend_authorization_id\":\"$LOORE_SPEND_AUTHORIZATION_ID\"}" \
+  <<< "Authorization: Bearer $LOORE_API_KEY"
 ```
+
+Every REST example passes the key header through stdin (`-H @-` with `<<<`), never as a
+`-H "Authorization: ..."` argument: command arguments are visible in `ps` to other users.
 
 Answer envelope: `{"status":"ok","result":{...}}` or `{"status":"error","error":"...","details":{...}}`.
 
@@ -171,16 +175,18 @@ Each media row (`ig_user_reels`, `ig_user_posts`, `ig_search`, `ig_hashtag_media
 MCP: `ig_profile` with `{"username": "<username>"}`. REST:
 ```bash
 curl -s -X POST https://mcp.loore.ai/v1/ig-profile \
-  -H "Authorization: Bearer $LOORE_API_KEY" -H "Content-Type: application/json" \
-  -d '{"username":"<username>"}' | python3 -m json.tool
+  -H @- -H "Content-Type: application/json" \
+  -d "{\"username\":\"<username>\",\"spend_authorization_id\":\"$LOORE_SPEND_AUTHORIZATION_ID\"}" \
+  <<< "Authorization: Bearer $LOORE_API_KEY" | python3 -m json.tool
 ```
 
 ### Account reels (top performing)
 MCP: `ig_user_reels` with `{"username": "<username>", "limit": 50}`, sort by `views`. REST:
 ```bash
 curl -s -X POST https://mcp.loore.ai/v1/ig-user-reels \
-  -H "Authorization: Bearer $LOORE_API_KEY" -H "Content-Type: application/json" \
+  -H @- -H "Content-Type: application/json" \
   -d "{\"username\":\"<username>\",\"limit\":50,\"spend_authorization_id\":\"$LOORE_SPEND_AUTHORIZATION_ID\"}" \
+  <<< "Authorization: Bearer $LOORE_API_KEY" \
   | python3 -c "
 import json, sys
 items = json.load(sys.stdin).get('result', {}).get('items', [])
@@ -203,7 +209,8 @@ bash ~/.claude/skills/instagram-superpower/scripts/download.sh "https://www.inst
 MCP: `get_credit_balance` (free). REST:
 ```bash
 curl -s -X POST https://mcp.loore.ai/v1/billing-balance \
-  -H "Authorization: Bearer $LOORE_API_KEY" -H "Content-Type: application/json" -d '{}'
+  -H @- -H "Content-Type: application/json" -d '{}' \
+  <<< "Authorization: Bearer $LOORE_API_KEY"
 ```
 
 ## Typical scenarios
@@ -237,8 +244,9 @@ MCP: `ig_hashtag_media` with `{"hashtag": "aitools", "rank": "top"}` (or `"reels
 REST:
 ```bash
 curl -s -X POST https://mcp.loore.ai/v1/ig-hashtag-media \
-  -H "Authorization: Bearer $LOORE_API_KEY" -H "Content-Type: application/json" \
-  -d '{"hashtag":"aitools","rank":"top","limit":50}'
+  -H @- -H "Content-Type: application/json" \
+  -d "{\"hashtag\":\"aitools\",\"rank\":\"top\",\"limit\":50,\"spend_authorization_id\":\"$LOORE_SPEND_AUTHORIZATION_ID\"}" \
+  <<< "Authorization: Bearer $LOORE_API_KEY"
 ```
 Places: `ig_search` `{"kind": "places", "query": "..."}` → `ig_location_media` with the place id.
 
@@ -248,9 +256,13 @@ List tools answer `hasMore` and, when it is true, `nextCursor`. Pass it back unc
 as `cursor` for the next page (`limit` up to 50; above 50 is refused, not clamped):
 ```bash
 curl -s -X POST https://mcp.loore.ai/v1/ig-user-reels \
-  -H "Authorization: Bearer $LOORE_API_KEY" -H "Content-Type: application/json" \
-  -d '{"username":"<username>","limit":50,"cursor":"<nextCursor>"}'
+  -H @- -H "Content-Type: application/json" \
+  -d "{\"username\":\"<username>\",\"limit\":50,\"cursor\":\"<nextCursor>\",\"spend_authorization_id\":\"$LOORE_SPEND_AUTHORIZATION_ID\"}" \
+  <<< "Authorization: Bearer $LOORE_API_KEY"
 ```
+
+Send the same `spend_authorization_id` with every page: a page without it is a new
+unapproved spend and gets `428 needs_user_confirmation`.
 
 A cursor is valid for 6 hours; after that the walk restarts from page one.
 
@@ -258,7 +270,8 @@ A cursor is valid for 6 hours; after that the walk restarts from page one.
 
 ### Loore
 - Budgets per key, per minute and per day, depending on the plan; current values in the dashboard
-- On `429` — wait (`details.retry_after_seconds`) and retry; on `401` / `402` / `403` / `428` — stop and tell the user
+- On `429` — wait (`Retry-After` / `details.retry_after_seconds`) and retry; if the wait is longer than a couple of minutes (`details.scope: "day"`), stop and tell the user when to rerun
+- On `403 private_account` — skip that account; on `401` / `402` / other `403` / `428` — stop and tell the user
 - Heavy calls (`analyze_reel`, `ig_download`) cost more — do not loop them "just in case"
 
 ### Cobalt (downloads)
@@ -277,7 +290,8 @@ A cursor is valid for 6 hours; after that the walk restarts from page one.
 ### Loore
 ```bash
 curl -s -X POST https://mcp.loore.ai/v1/billing-balance \
-  -H "Authorization: Bearer $LOORE_API_KEY" -H "Content-Type: application/json" -d '{}'
+  -H @- -H "Content-Type: application/json" -d '{}' \
+  <<< "Authorization: Bearer $LOORE_API_KEY"
 # Key in dashboard: https://app.loore.ai → Настройки → API и MCP (revoke a leaked key there)
 ```
 

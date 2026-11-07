@@ -69,7 +69,8 @@ def reel_row(item: dict) -> dict:
     """Map one Loore media row (ig_user_reels / ig_search) to the reel shape the pipeline uses.
 
     Loore omits a count it did not receive instead of zero-filling it; the
-    pipeline's numeric fields keep their 0 fallback.
+    pipeline's numeric fields keep their 0 fallback. Hidden likes are not zero:
+    `likes_hidden` marks them so ER is not computed for that reel.
     """
     code = item.get("code", "")
     return {
@@ -78,6 +79,7 @@ def reel_row(item: dict) -> dict:
         "caption": item.get("caption") or " ".join(f"#{t}" for t in item.get("hashtags") or []),
         "play_count": int(item.get("views") or 0),
         "like_count": int(item.get("likes") or 0),
+        "likes_hidden": bool(item.get("likesHidden")),
         "comment_count": int(item.get("comments") or 0),
         "video_duration": float(item.get("durationSec") or 0),
         "taken_at": iso_to_epoch(item.get("takenAt")),

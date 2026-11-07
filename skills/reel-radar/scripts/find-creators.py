@@ -160,7 +160,7 @@ def _profile(username: str, key: str) -> dict | None:
     try:
         d = _loore.call("ig-profile", {"username": username}, key=key)
     except _loore.LooreError as e:
-        if e.fatal and e.http_status != 403:
+        if e.fatal and not e.private_account:
             raise
         log.debug("profile @%s failed: %s", username, e)
         return None
@@ -188,7 +188,7 @@ def _clips_cadence(pk: str, key: str) -> dict:
     try:
         d = _loore.call("ig-user-reels", {"user_id": pk, "limit": CADENCE_PAGE, "include_caption": True}, key=key)
     except _loore.LooreError as e:
-        if e.fatal and e.http_status != 403:
+        if e.fatal and not e.private_account:
             raise
         log.debug("clips %s failed: %s", pk, e)
         return empty

@@ -61,7 +61,7 @@ for i, r in enumerate(reels, 1):
             os.replace(compressed, out)
         print(f"[{i}] OK {out} ({os.path.getsize(out)//1024}KB)")
     except _loore.LooreError as e:
-        if e.fatal and e.http_status != 403:
+        if e.fatal and not e.private_account:
             print(f"[{i}] STOP {code}: {e.hint()}"); sys.exit(1)
         print(f"[{i}] FAIL {code}: {e}")
     except Exception as e:

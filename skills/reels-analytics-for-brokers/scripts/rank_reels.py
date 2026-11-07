@@ -117,7 +117,8 @@ def main() -> int:
             "spike": round(views / median_views, 2),
             "reach_ratio": round(views / followers, 2),
             "reach_pct": round(100.0 * views / followers, 1),
-            "er_pct": round(100.0 * interactions / views, 2) if views else 0.0,
+            # Hidden likes would read as 0 and sink ER: such a reel gets no ER.
+            "er_pct": None if reel.get("likes_hidden") else (round(100.0 * interactions / views, 2) if views else 0.0),
             "posted": datetime.fromtimestamp(reel["taken_at"], tz=timezone.utc).date().isoformat(),
         })
 
@@ -139,7 +140,7 @@ def main() -> int:
             writer.writerow({**reel, "caption": (reel.get("caption") or "").replace("\n", " ")[:300]})
 
     all_views = [r["views"] for r in scored]
-    all_er = [r["er_pct"] for r in scored]
+    all_er = [r["er_pct"] for r in scored if r["er_pct"] is not None]
     leader = top[0]
     summary = {
         "window_days": args.days,
@@ -147,7 +148,7 @@ def main() -> int:
         "reels_in_sample": len(scored),
         "median_views": round(statistics.median(all_views), 1),
         "p90_views": round(percentile([float(v) for v in all_views], 0.9), 1),
-        "median_er_pct": round(statistics.median(all_er), 2),
+        "median_er_pct": round(statistics.median(all_er), 2) if all_er else None,
         "breakouts_over_3x": sum(1 for r in scored if r["spike"] >= 3),
         "leader": {
             "account": leader["account"], "followers": leader["followers"], "views": leader["views"],
@@ -159,9 +160,10 @@ def main() -> int:
 
     log.info("ranked %d reels from %d accounts | sample median %.0f views | %d breakouts >=3x",
              len(scored), summary["accounts_in_sample"], summary["median_views"], summary["breakouts_over_3x"])
-    log.info("leader: @%s %d followers -> %d views (spike %.1fx, reach %.0f%%, ER %.2f%%)",
+    leader_er = "hidden likes" if leader["er_pct"] is None else f"{leader['er_pct']:.2f}%"
+    log.info("leader: @%s %d followers -> %d views (spike %.1fx, reach %.0f%%, ER %s)",
              leader["account"], leader["followers"], leader["views"],
-             leader["spike"], leader["reach_pct"], leader["er_pct"])
+             leader["spike"], leader["reach_pct"], leader_er)
     return 0
 
 

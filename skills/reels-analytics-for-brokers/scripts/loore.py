@@ -26,11 +26,14 @@ import time
 import urllib.error
 import urllib.request
 from collections.abc import Iterator
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 BASE_URL = os.environ.get("LOORE_API_BASE", "https://mcp.loore.ai").rstrip("/")
 TIMEOUT = 120
 MAX_RETRIES = 3
+# Longest wait the client sleeps through; a longer Retry-After (e.g. the daily budget) ends the run.
+MAX_RETRY_WAIT_S = 120.0
 
 log = logging.getLogger("loore")
 
@@ -49,14 +52,21 @@ class LooreError(RuntimeError):
         """401/402/403/428/502 cannot be fixed by retrying — stop and tell the human."""
         return self.http_status in (401, 402, 403, 428, 502)
 
+    @property
+    def private_account(self) -> bool:
+        """403 `private_account`: the Instagram account is private (not a key-scope refusal)."""
+        return self.http_status == 403 and self.error == "private_account"
+
     def hint(self) -> str:
         """One-line Russian explanation for the person running the script."""
         if self.http_status == 401:
             return "ключ Loore не принят – проверьте LOORE_API_KEY (app.loore.ai → Настройки → API и MCP)"
         if self.http_status == 402:
             return "закончились кредиты или квота тарифа Loore – пополните баланс"
+        if self.private_account:
+            return "аккаунт приватный – Loore не читает закрытые аккаунты"
         if self.http_status == 403:
-            return "ключ не имеет прав на этот метод или аккаунт приватный"
+            return f"ключ не имеет прав на этот метод ({self.error})"
         if self.http_status == 428:
             cap = self.details.get("suggestedFlowCapCredits")
             extra = f" (Loore предлагает лимит {cap} кредитов)" if cap is not None else ""
@@ -107,6 +117,32 @@ def _post(method: str, body: dict[str, Any], key: str) -> tuple[int, dict[str, A
         return e.code, env if isinstance(env, dict) else {"error": str(env)}, dict(e.headers or {})
 
 
+def _retry_after(details: dict[str, Any], headers: dict[str, str]) -> float | None:
+    """Seconds to wait from details.retry_after_seconds or the Retry-After header, if given."""
+    header = next((v for k, v in headers.items() if k.lower() == "retry-after"), None)
+    for raw in (details.get("retry_after_seconds"), header):
+        try:
+            if raw is not None and str(raw).strip():
+                return max(0.0, float(raw))
+        except (TypeError, ValueError):
+            continue
+    return None
+
+
+def _stop_until(method: str, err: LooreError, wait_s: float) -> None:
+    """The window resets later than the client may sleep: tell when to rerun and exit 4."""
+    rerun_at = datetime.now(timezone.utc) + timedelta(seconds=wait_s)
+    scope = err.details.get("scope")
+    window = {"day": "суточный", "minute": "минутный"}.get(str(scope), "")
+    print(
+        f"{method}: {window + ' ' if window else ''}лимит запросов Loore исчерпан ({err.error}), "
+        f"окно сбросится через {wait_s / 60:.0f} мин – перезапустите после "
+        f"{rerun_at:%Y-%m-%d %H:%M} UTC",
+        file=sys.stderr,
+    )
+    raise SystemExit(4)
+
+
 def call(method: str, body: dict[str, Any] | None = None, *, key: str | None = None, paid: bool = True) -> dict[str, Any]:
     """Call one Loore operation and return its `result`.
 
@@ -121,6 +157,7 @@ def call(method: str, body: dict[str, Any] | None = None, *, key: str | None = N
 
     Raises:
         LooreError: the call was refused; `.fatal` says whether retrying is pointless.
+        SystemExit: code 4 when Retry-After is longer than MAX_RETRY_WAIT_S (rerun time printed).
     """
     key = key or api_key()
     payload = dict(body or {})
@@ -137,11 +174,11 @@ def call(method: str, body: dict[str, Any] | None = None, *, key: str | None = N
         retriable = status in (429, 503) or (status == 500 and attempt == 0)
         if not retriable or attempt == MAX_RETRIES:
             raise err
-        wait = err.details.get("retry_after_seconds") or headers.get("Retry-After") or 2 ** (attempt + 1)
-        try:
-            wait_s = min(float(wait), 120.0)
-        except (TypeError, ValueError):
+        wait_s = _retry_after(err.details, headers)
+        if wait_s is None:
             wait_s = 2.0 ** (attempt + 1)
+        elif wait_s > MAX_RETRY_WAIT_S:
+            _stop_until(method, err, wait_s)
         log.warning("%s: %s, retry in %.0fs", method, err, wait_s)
         time.sleep(wait_s)
     raise RuntimeError("unreachable")

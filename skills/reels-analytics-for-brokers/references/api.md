@@ -27,11 +27,15 @@ https://app.loore.ai – кабинет и ключи (Настройки → AP
 ```bash
 export LOORE_API_KEY="..."     # app.loore.ai → Настройки → API и MCP
 
-curl -s https://mcp.loore.ai/v1/ig-profile \
-  -H "Authorization: Bearer $LOORE_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"username": "example"}'
+# The key goes in through stdin (-H @-), so it never shows up in argv / ps.
+curl -s -X POST https://mcp.loore.ai/v1/ig-profile \
+  -H @- -H "Content-Type: application/json" \
+  -d "{\"username\":\"example\",\"spend_authorization_id\":\"$LOORE_SPEND_AUTHORIZATION_ID\"}" \
+  <<< "Authorization: Bearer $LOORE_API_KEY"
 ```
+
+Заголовок с ключом передаётся через stdin (`-H @-` и `<<<`), а не аргументом
+`-H "Authorization: ..."`: аргументы команды видны в `ps` и в списке процессов.
 
 Скрипты ходят через `scripts/loore.py` (`call()`, `paginate()`, `LooreError`)
 и `scripts/loore_ig.py` (лимит частоты, счётчик кредитов, нормализация полей).
@@ -121,7 +125,7 @@ export LOORE_SPEND_AUTHORIZATION_ID=<выведенный id>
 | `pk` (ролик) | `id` | числовой id, ключ для комментариев |
 | `code` | `code` | шорткод; ссылка `https://www.instagram.com/reel/{code}/` |
 | `views` | `views` | отсутствует, если Loore не получил положительного счётчика – тогда 0 |
-| `likes` | `likes` | отсутствует при `likesHidden: true` – тогда 0 |
+| `likes` | `likes` | отсутствует при `likesHidden: true` – тогда 0 и `likes_hidden: true`, ER такого ролика не считается |
 | `comments` | `comments` | |
 | `duration` | `durationSec` | |
 | `taken_at` | `takenAt` | ISO-8601 → секунды unix |
@@ -147,10 +151,11 @@ export LOORE_SPEND_AUTHORIZATION_ID=<выведенный id>
 |---|---|---|
 | 401 | ключ не принят | стоп с подсказкой |
 | 402 | закончились кредиты или квота тарифа | стоп |
-| 403 | нет прав на метод или аккаунт приватный | пропуск этого аккаунта |
+| 403 `private_account` | аккаунт приватный | пропуск этого аккаунта |
+| 403 другой код (`scope_forbidden`) | ключ не имеет прав на метод | стоп |
 | 404 | не найдено | «нет данных», не ошибка |
 | 428 | нужно одобрение расхода | стоп, подсказка про `loore.py approve` |
-| 429 | исчерпан бюджет запросов | пауза по `details.retry_after_seconds`, повтор |
+| 429 | исчерпан бюджет запросов | пауза по `Retry-After` / `details.retry_after_seconds` и повтор; ждать дольше 120 с – стоп с временем перезапуска (код выхода 4) |
 | 502 | метод не реализован | стоп |
 | 503 | сбой источника | повтор с откатом |
 
@@ -181,8 +186,11 @@ export LOORE_SPEND_AUTHORIZATION_ID=<выведенный id>
 без id и имени. Такой автор попадает в пул с ключом `handle:<юзернейм>` и
 получает числовой id на квалификации.
 
-**429.** Транзиентный. Клиент ждёт `retry_after_seconds` и повторяет; если 429
-идут часто – уменьшай `--rps` и `--workers`.
+**429.** Клиент ждёт `Retry-After` (или `details.retry_after_seconds`) и
+повторяет. Если окно сбрасывается позже чем через 120 секунд (обычно суточный
+бюджет, `details.scope: "day"`), повторы бессмысленны: скрипт останавливается
+с кодом 4 и пишет, после какого времени (UTC) перезапустить. Если 429 идут
+часто – уменьшай `--rps` и `--workers`.
 
 ## Чего в API нет
 

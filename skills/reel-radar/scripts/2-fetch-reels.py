@@ -66,7 +66,7 @@ async def fetch_clips(session_sem: asyncio.Semaphore, loop: asyncio.AbstractEven
         try:
             clips = await loop.run_in_executor(None, _sync_fetch_clips, user, key)
         except _loore.LooreError as e:
-            if e.fatal and e.http_status != 403:
+            if e.fatal and not e.private_account:
                 raise
             log.warning("clips fetch failed for @%s: %s", user.get("username"), e)
             return []
@@ -81,7 +81,7 @@ async def fetch_clips(session_sem: asyncio.Semaphore, loop: asyncio.AbstractEven
                 prof = await loop.run_in_executor(None, _sync_fetch_profile, user, key)
                 bio, followers = prof.get("biography", ""), int(prof.get("followers") or 0)
             except _loore.LooreError as e:
-                if e.fatal and e.http_status != 403:
+                if e.fatal and not e.private_account:
                     raise
                 log.warning("profile fetch failed for @%s: %s", user.get("username"), e)
     return [{**c, "author": user["username"], "author_bio": bio,

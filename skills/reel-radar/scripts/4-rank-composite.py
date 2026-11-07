@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Composite ranking: rank_views + rank_comments + rank_er. Lower = better."""
+"""Composite ranking: rank_views + rank_comments + rank_er. Lower = better.
+
+A reel whose author hid the likes has no ER: it is left out of the ER ranking
+and its composite is the mean of its two other ranks scaled to three terms.
+"""
 from __future__ import annotations
 
 import argparse
@@ -30,22 +34,33 @@ def main() -> int:
 
     views = [float(r.get("play_count", 0)) for r in reels]
     comments = [float(r.get("comment_count", 0)) for r in reels]
-    ers = []
-    for r in reels:
+    ers: dict[int, float] = {}
+    for idx, r in enumerate(reels):
+        if r.get("likes_hidden"):
+            continue
         followers = max(int(r.get("author_followers", 0) or 0), 1)
         interactions = int(r.get("like_count", 0)) + int(r.get("comment_count", 0))
-        ers.append(interactions / followers)
+        ers[idx] = interactions / followers
 
     rv = rank_map(views)
     rc = rank_map(comments)
-    re_rank = rank_map(ers)
+    er_idx = list(ers)
+    re_rank = {er_idx[pos]: rank for pos, rank in rank_map([ers[i] for i in er_idx]).items()}
 
     for idx, r in enumerate(reels):
         r["rank_views"] = rv[idx]
         r["rank_comments"] = rc[idx]
-        r["rank_er"] = re_rank[idx]
-        r["engagement_rate"] = round(ers[idx] * 100, 3)
-        r["composite"] = rv[idx] + rc[idx] + re_rank[idx]
+        if idx in ers:
+            r["rank_er"] = re_rank[idx]
+            r["engagement_rate"] = round(ers[idx] * 100, 3)
+            r["composite"] = rv[idx] + rc[idx] + re_rank[idx]
+        else:
+            r["rank_er"] = None
+            r["engagement_rate"] = None
+            r["composite"] = round((rv[idx] + rc[idx]) * 1.5, 1)
+    hidden = len(reels) - len(ers)
+    if hidden:
+        log.info("%d reels with hidden likes left out of ER", hidden)
 
     reels.sort(key=lambda r: r["composite"])
     top = reels[: args.top]

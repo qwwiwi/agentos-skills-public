@@ -29,8 +29,10 @@ MAX_PAGES = 3
 
 
 def fetch_clips(username: str, key: str, cutoff_ts: float) -> list[dict]:
-    """Read the account's reels newest-first until the window ends.
+    """Read up to MAX_PAGES pages of the account's reels and keep those in the window.
 
+    The contract only promises `order: source` (no strict newest-first), so an
+    old reel does not end the walk: rows outside the window are filtered out.
     Pinned and trial reels are left out: a pin is usually an old hit and a
     trial was shown to non-followers only, so neither describes the baseline.
     """
@@ -41,7 +43,7 @@ def fetch_clips(username: str, key: str, cutoff_ts: float) -> list[dict]:
             continue
         row = reel_row(it)
         if row["taken_at"] and row["taken_at"] < cutoff_ts:
-            break
+            continue
         out.append(row)
     return out
 

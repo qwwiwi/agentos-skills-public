@@ -236,7 +236,8 @@ def media_fields(media: dict[str, Any]) -> dict[str, Any]:
     Field mapping: ``id`` -> pk, ``takenAt`` (ISO) -> taken_at (unix seconds),
     ``durationSec`` -> duration. ``views`` is absent when Loore received no
     positive play count; it becomes 0 and is dropped from medians downstream.
-    ``likes`` is absent when the author hid it (``likesHidden``).
+    ``likes`` is absent when the author hid it (``likesHidden``); ``likes_hidden``
+    keeps that mark so ER is not computed from a fake zero.
 
     Args:
         media: One row of ig-user-reels / ig-hashtag-media, or ig-media's ``media``.
@@ -251,6 +252,7 @@ def media_fields(media: dict[str, Any]) -> dict[str, Any]:
         "caption": str(media.get("caption") or ""),
         "views": num(media.get("views"), int, 0),
         "likes": num(media.get("likes"), int, 0),
+        "likes_hidden": bool(media.get("likesHidden")),
         "comments": num(media.get("comments"), int, 0),
         "duration": num(media.get("durationSec"), float, 0.0),
         "taken_at": parse_ts(media.get("takenAt")),
