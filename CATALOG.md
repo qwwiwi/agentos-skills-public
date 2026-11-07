@@ -19,7 +19,7 @@ Production-tested скиллы для Claude Code. Здесь — sanitize-ве�
 | `telegram-chip` | Telegram user-аккаунт (Telethon): чтение, отправка и экспорт чатов через единый HTTP API | available |
 | `topic-monitor` | Регулярный мониторинг темы | available |
 | `yt-research` | YouTube-ресерч: поиск по нише, velocity, скан каналов-конкурентов, транскрипты | available |
-| `reel-radar` | Контент-разведка Instagram под съёмку: подписки эталонного аккаунта, залетевшие рилсы за неделю, транскрипты, дашборд с 25 референсами и 15 ТЗ на съёмку | available |
+| `reel-radar` | Контент-разведка Instagram под съёмку: подписки эталонного аккаунта, залетевшие рилсы за неделю, транскрипты, дашборд с 25 референсами и 15 ТЗ на съёмку; данные Instagram – [Loore](https://docs.loore.ai) | available |
 
 ## Кодинг и разработка
 
@@ -47,15 +47,17 @@ Production-tested скиллы для Claude Code. Здесь — sanitize-ве�
 
 ## Соцсети — Instagram, Reels, YouTube, Threads
 
+Источник данных Instagram во всех скиллах – [Loore](https://docs.loore.ai): один ключ `LOORE_API_KEY`, MCP и REST.
+
 | Скилл | Что делает | Статус |
 |-------|------------|--------|
-| `instagram-superpower` | Аналитика аккаунта и конкурентов через HikerAPI + скачивание рилсов и постов через Cobalt | available |
+| `instagram-superpower` | Аналитика аккаунта и конкурентов через [Loore](https://docs.loore.ai) + скачивание рилсов и постов через Cobalt | available |
 | `carousel-instagram` | Карусели для Instagram: слайды 1080×1350 из текста и фото, HTML/CSS + Playwright-рендер | available |
 | `reels` | Сценарии Reels — 5 форматов | available |
 | `youtube-producer` | YouTube long-form | available |
 | `youtube-thumbnail` | YouTube-обложки 1920×1080: лицо из кадров + gpt-image + наложение текста/шрифта | available |
 | `threads-content` | Контент для Threads | available |
-| `reels-analytics-for-brokers` | Радар восходящих офферов в Instagram: пул конкурентов, ранжирование рилсов по всплеску, разбор хуков, динамика между срезами. Образец под свою нишу | available |
+| `reels-analytics-for-brokers` | Радар восходящих офферов в Instagram: пул конкурентов, ранжирование рилсов по всплеску, разбор хуков, динамика между срезами. Данные – [Loore](https://docs.loore.ai). Образец под свою нишу | available |
 
 ## AI-генерация изображений и видео
 
