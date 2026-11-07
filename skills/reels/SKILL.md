@@ -11,7 +11,7 @@ description: "Create a production brief (ТЗ) for Instagram Reels: teleprompter
 1. Get the reference reel link
 2. Download via `scripts/download.sh` (from instagram-superpower skill)
 3. Transcribe via `mlx_whisper` or groq-voice
-4. Get metrics via HikerAPI (`media/by/code`)
+4. Get metrics via Loore (https://docs.loore.ai): MCP `ig_media` with the reel link (or `analyze_reel` with `depth: "quick"` — metrics, caption, transcript with timecodes and the author-baseline outlier score in one call)
 5. Analyze script structure
 6. Adapt to your language and brand voice
 7. Generate HTML
@@ -115,8 +115,8 @@ Common keyword patterns:
 |------|------|
 | Download reference reel | `instagram-superpower/scripts/download.sh` |
 | Transcribe | `mlx_whisper` or `groq-voice/transcribe.sh` |
-| Reel metrics | HikerAPI `media/by/code` |
-| Author metrics | HikerAPI `user/by/username` |
+| Reel metrics | Loore `ig_media` (`POST /v1/ig-media`) or `analyze_reel` |
+| Author metrics | Loore `ig_profile` (`POST /v1/ig-profile`) |
 | HTML generation | `present` skill (dark theme) |
 
 ## Example request

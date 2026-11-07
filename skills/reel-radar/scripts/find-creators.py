@@ -1,17 +1,19 @@
 #!/usr/bin/env python3
 """Discover English-language IG creators posting >=30 reels/month about AI agents.
 
-Pipeline:
-  1. Discovery  -- fbsearch/reels across many keywords (paginated) + optional watchlist seed
-                   => pool of candidate usernames with topic-hit tally
-  2. Enrich     -- profile by username => follower_count, pk, bio; gate followers>=10k, public
-  3. Cadence    -- one clips call/account => reels_per_month from batch span; topic + english + recency gates
+Pipeline (all data via Loore, https://docs.loore.ai):
+  1. Discovery  -- ig_search kind=reels across many keywords (paginated) + ig_hashtag_media rank=reels
+                   + optional watchlist seed => pool of candidate usernames with topic-hit tally
+  2. Enrich     -- ig_profile by username => followers, id, bio; gate followers>=10k, public
+  3. Cadence    -- one ig_user_reels page/account => reels_per_month from batch span; topic + english + recency gates
   4. Output     -- strict passes + ranked top-100 -> JSON + readable txt
 
-HikerAPI only. Cheap, not credit-limited. Single clips call/account (clips caps at ~12),
-so monthly cadence is extrapolated from the span of the returned batch.
+Every page and every profile is a paid Loore request: set LOORE_SPEND_AUTHORIZATION_ID to a
+budget the user approved (python3 _loore.py approve --flow find-creators --cap <credits>).
+Single reels page/account (CADENCE_PAGE rows), so monthly cadence is extrapolated from the span of the batch.
+Search rows carry no caption text, only the caption's hashtags -- those feed the topic tally.
 
-Usage: HIKER_KEY=... (or HIKER_API_KEY) python3 find-creators.py <out_dir> [--target 100] [--min-followers 10000]
+Usage: LOORE_API_KEY=... python3 find-creators.py <out_dir> [--target 100] [--min-followers 10000]
                                                           [--min-reels-month 30] [--pages 3] [--parallel 8]
 """
 from __future__ import annotations
@@ -23,15 +25,17 @@ import logging
 import os
 import sys
 import time
-import urllib.error
-import urllib.parse
-import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
+import _loore
+from _config import iso_to_epoch
+
 log = logging.getLogger("find-creators")
 
-BASE = "https://api.instagrapi.com"
+# Rows per search/hashtag page (contract maximum 50) and per cadence read.
+PAGE_SIZE = 50
+CADENCE_PAGE = 24
 
 # EXAMPLE NICHE: AI / agents / coding. Replace all three lists below with the
 # vocabulary of your own niche -- the rest of the script does not know the topic.
@@ -82,24 +86,47 @@ def parse_args() -> argparse.Namespace:
     return p.parse_args()
 
 
-def _get(path: str, params: dict, key: str, retries: int = 3) -> dict:
-    url = f"{BASE}{path}?{urllib.parse.urlencode(params)}"
-    last = None
-    for attempt in range(retries):
+def _caption_text(m: dict) -> str:
+    """Caption when the row carries it, otherwise its hashtags as '#tag' words."""
+    return m.get("caption") or " ".join(f"#{t}" for t in m.get("hashtags") or [])
+
+
+def _add_hit(pool: dict[str, dict], m: dict, term: str) -> bool:
+    """Count one discovery hit for the row's author; False when the row names none."""
+    un = (m.get("author") or "").lower()
+    if not un:
+        return False
+    rec = pool.setdefault(un, {"hits": 0, "terms": set(), "captions": []})
+    rec["hits"] += 1
+    rec["terms"].add(term)
+    captext = _caption_text(m)
+    if captext:
+        rec["captions"].append(captext[:200])
+    return True
+
+
+def _walk(method: str, body: dict, key: str, pages: int, label: str) -> list[dict]:
+    """Read up to `pages` cursor pages; a refused page ends this walk only (fatal errors propagate)."""
+    rows: list[dict] = []
+    cursor: str | None = None
+    for page in range(pages):
+        page_body = {**body, "limit": PAGE_SIZE}
+        if cursor:
+            page_body["cursor"] = cursor
         try:
-            req = urllib.request.Request(url, headers={"x-access-key": key})
-            with urllib.request.urlopen(req, timeout=35) as r:
-                return json.loads(r.read().decode("utf-8", errors="replace"))
-        except urllib.error.HTTPError as e:
-            last = e
-            if e.code in (429, 500, 502, 503):
-                time.sleep(1.5 * (attempt + 1))
-                continue
+            d = _loore.call(method, page_body, key=key)
+        except _loore.LooreError as e:
+            if e.fatal:
+                raise
+            log.warning("%s p%d failed: %s", label, page, e)
             break
-        except Exception as e:  # noqa: BLE001
-            last = e
-            time.sleep(1.0 * (attempt + 1))
-    raise RuntimeError(f"GET {path} failed: {last}")
+        items = d.get("items") or []
+        rows += items
+        log.info("%s p%d: +%d", label, page, len(items))
+        cursor = d.get("nextCursor")
+        if not d.get("hasMore") or not cursor or not items:
+            break
+    return rows
 
 
 # ---------- Phase 1: discovery ----------
@@ -108,129 +135,77 @@ def discover(key: str, pages: int) -> dict[str, dict]:
     """Return {username: {hits:int, terms:set, captions:[...]}}."""
     pool: dict[str, dict] = {}
     for kw in KEYWORDS:
-        max_id = None
         seen_ids: set[str] = set()
-        for page in range(pages):
-            params = {"query": kw}
-            if max_id:
-                params["max_id"] = max_id
-            try:
-                d = _get("/v2/fbsearch/reels", params, key)
-            except Exception as e:  # noqa: BLE001
-                log.warning("search '%s' p%d failed: %s", kw, page, e)
-                break
-            mods = d.get("reels_serp_modules") or []
-            page_new = 0
-            for mod in mods:
-                for clip in mod.get("clips") or []:
-                    m = clip.get("media") or clip
-                    mid = str(m.get("pk") or m.get("id") or "")
-                    if mid in seen_ids:
-                        continue
-                    seen_ids.add(mid)
-                    page_new += 1
-                    u = m.get("user") or {}
-                    un = (u.get("username") or "").lower()
-                    if not un:
-                        continue
-                    cap = m.get("caption")
-                    captext = cap.get("text") if isinstance(cap, dict) else (m.get("caption_text") or "")
-                    rec = pool.setdefault(un, {"hits": 0, "terms": set(), "captions": []})
-                    rec["hits"] += 1
-                    rec["terms"].add(kw)
-                    if captext:
-                        rec["captions"].append(captext[:200])
-            log.info("kw='%s' p%d: +%d clips, pool=%d", kw, page, page_new, len(pool))
-            if not d.get("has_more") or not d.get("reels_max_id") or page_new == 0:
-                break
-            max_id = d.get("reels_max_id")
+        for m in _walk("ig-search", {"kind": "reels", "query": kw}, key, pages, f"kw='{kw}'"):
+            mid = str(m.get("code") or m.get("id") or "")
+            if mid in seen_ids:
+                continue
+            seen_ids.add(mid)
+            _add_hit(pool, m, kw)
+        log.info("kw='%s': pool=%d", kw, len(pool))
 
     # hashtag harvest -- different surface, catches prolific taggers
     for tag in HASHTAGS:
-        page_id = None
-        for page in range(2):
-            params = {"name": tag}
-            if page_id:
-                params["page_id"] = page_id
-            try:
-                d = _get("/v2/hashtag/medias/clips", params, key)
-            except Exception as e:  # noqa: BLE001
-                log.warning("hashtag #%s p%d failed: %s", tag, page, e)
-                break
-            secs = (d.get("response") or {}).get("sections") or []
-            page_new = 0
-            for s in secs:
-                lc = s.get("layout_content") or {}
-                medias = list(lc.get("fill_items") or [])
-                obt = lc.get("one_by_two_item") or {}
-                medias += ((obt.get("clips") or {}).get("items")) or []
-                for mi in medias:
-                    m = mi.get("media") or mi
-                    u = m.get("user") or {}
-                    un = (u.get("username") or "").lower()
-                    if not un:
-                        continue
-                    cap = m.get("caption")
-                    captext = cap.get("text") if isinstance(cap, dict) else (m.get("caption_text") or "")
-                    rec = pool.setdefault(un, {"hits": 0, "terms": set(), "captions": []})
-                    rec["hits"] += 1
-                    rec["terms"].add("#" + tag)
-                    if captext:
-                        rec["captions"].append(captext[:200])
-                    page_new += 1
-            log.info("tag=#%s p%d: +%d, pool=%d", tag, page, page_new, len(pool))
-            page_id = d.get("next_page_id")
-            if not page_id or page_new == 0:
-                break
+        body = {"hashtag": tag, "rank": "reels", "include_caption": True}
+        for m in _walk("ig-hashtag-media", body, key, 2, f"tag=#{tag}"):
+            _add_hit(pool, m, "#" + tag)
+        log.info("tag=#%s: pool=%d", tag, len(pool))
     return pool
 
 
 # ---------- Phase 2: enrich profile ----------
 
 def _profile(username: str, key: str) -> dict | None:
+    """One ig_profile read mapped to the creator row; None when unavailable."""
     try:
-        d = _get("/v2/user/by/username", {"username": username}, key)
-    except Exception as e:  # noqa: BLE001
+        d = _loore.call("ig-profile", {"username": username}, key=key)
+    except _loore.LooreError as e:
+        if e.fatal and not e.private_account:
+            raise
         log.debug("profile @%s failed: %s", username, e)
         return None
-    u = d.get("user") or d
-    if not u or not u.get("pk"):
+    u = d.get("profile") or {}
+    if not u.get("id"):
         return None
     return {
         "username": u.get("username") or username,
-        "pk": str(u.get("pk")),
-        "full_name": u.get("full_name") or "",
+        "pk": str(u.get("id")),
+        "full_name": u.get("fullName") or "",
         "biography": u.get("biography") or "",
-        "follower_count": int(u.get("follower_count") or 0),
-        "media_count": int(u.get("media_count") or 0),
-        "is_private": bool(u.get("is_private")),
-        "is_verified": bool(u.get("is_verified")),
-        "is_business": bool(u.get("is_business")),
+        "follower_count": int(u.get("followers") or 0),
+        "media_count": int(u.get("posts") or 0),
+        "is_private": bool(u.get("isPrivate")),
+        "is_verified": bool(u.get("isVerified")),
+        "category": u.get("category") or "",
     }
 
 
 # ---------- Phase 3: cadence ----------
 
 def _clips_cadence(pk: str, key: str) -> dict:
+    """Posting cadence from one ig_user_reels page (pinned reels left out)."""
+    empty = {"reels_per_month": 0.0, "n_clips": 0, "days_since_last": 9999, "captions": []}
     try:
-        d = _get("/v2/user/clips", {"user_id": pk}, key)
-    except Exception as e:  # noqa: BLE001
+        d = _loore.call("ig-user-reels", {"user_id": pk, "limit": CADENCE_PAGE, "include_caption": True}, key=key)
+    except _loore.LooreError as e:
+        if e.fatal and not e.private_account:
+            raise
         log.debug("clips %s failed: %s", pk, e)
-        return {"reels_per_month": 0.0, "n_clips": 0, "days_since_last": 9999, "captions": []}
-    items = d.get("items") or d.get("response", {}).get("items") or []
+        return empty
     ts: list[float] = []
     caps: list[str] = []
-    for it in items:
-        m = it.get("media") or it
-        t = m.get("taken_at")
+    for m in d.get("items") or []:
+        # A pinned reel heads the feed whatever its age and would stretch the span.
+        if m.get("isPinned"):
+            continue
+        t = iso_to_epoch(m.get("takenAt"))
         if t:
-            ts.append(float(t))
-        cap = m.get("caption")
-        captext = cap.get("text") if isinstance(cap, dict) else (m.get("caption_text") or "")
+            ts.append(t)
+        captext = _caption_text(m)
         if captext:
             caps.append(captext[:200])
     if not ts:
-        return {"reels_per_month": 0.0, "n_clips": 0, "days_since_last": 9999, "captions": caps}
+        return {**empty, "captions": caps}
     ts.sort(reverse=True)
     now = time.time()
     newest, oldest = ts[0], ts[-1]
@@ -261,10 +236,7 @@ def _topic_hits(text: str) -> int:
 
 
 async def run(args: argparse.Namespace) -> int:
-    key = os.environ.get("HIKER_KEY") or os.environ.get("HIKER_API_KEY") or os.environ.get("HIKERAPI_KEY", "")
-    if not key:
-        log.error("HIKER_KEY env empty")
-        return 3
+    key = _loore.api_key()
     state = args.out_dir / "state"
     state.mkdir(parents=True, exist_ok=True)
     loop = asyncio.get_event_loop()
@@ -426,7 +398,11 @@ async def run(args: argparse.Namespace) -> int:
 def main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s", stream=sys.stderr)
     args = parse_args()
-    return asyncio.run(run(args))
+    try:
+        return asyncio.run(run(args))
+    except _loore.LooreError as e:
+        log.error("%s", e.hint())
+        return 1
 
 
 if __name__ == "__main__":

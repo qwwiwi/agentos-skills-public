@@ -72,18 +72,21 @@ log(){ printf '\n\033[1;33m[run] %s\033[0m\n' "$*"; }
 
 # Keys come from the environment only -- never from a file inside the skill.
 # Optionally keep them in a local, git-ignored env file next to the skill:
-#   HIKER_KEY=...  GROQ_KEY=...  TELEGRAM_BOT_TOKEN=...  TELEGRAM_CHAT_ID=...
+#   LOORE_API_KEY=...  LOORE_SPEND_AUTHORIZATION_ID=...  GROQ_KEY=...  TELEGRAM_BOT_TOKEN=...  TELEGRAM_CHAT_ID=...
 ENV_FILE="${REEL_RADAR_ENV:-$SKILL_ROOT/.env}"
 if [ -f "$ENV_FILE" ]; then
   # shellcheck disable=SC1090
   source "$ENV_FILE"
 fi
 
-# Accept either naming convention for the data-provider key.
-HIKER_KEY="${HIKER_KEY:-${HIKER_API_KEY:-}}"; export HIKER_KEY
+# Instagram data comes from Loore (https://docs.loore.ai); paid calls are covered by
+# a user-approved flow budget: python3 scripts/_loore.py approve --flow reel-radar --cap <credits>
+export LOORE_API_KEY="${LOORE_API_KEY:-}"
+export LOORE_SPEND_AUTHORIZATION_ID="${LOORE_SPEND_AUTHORIZATION_ID:-}"
 GROQ_KEY="${GROQ_KEY:-${GROQ_API_KEY:-}}"; export GROQ_KEY
 
-[ -n "${HIKER_KEY:-}" ] || { echo "ERR: HIKER_KEY is empty (get a key at https://hikerapi.com)" >&2; exit 3; }
+[ -n "$LOORE_API_KEY" ] || { echo "ERR: LOORE_API_KEY is empty (create a key at https://app.loore.ai -> Настройки -> API и MCP)" >&2; exit 3; }
+[ -n "$LOORE_SPEND_AUTHORIZATION_ID" ] || echo "WARN: LOORE_SPEND_AUTHORIZATION_ID is empty -- paid Loore calls will stop with 428 (see SKILL.md)" >&2
 [ -n "${GROQ_KEY:-}" ] || { echo "ERR: GROQ_KEY is empty (get a key at https://console.groq.com)" >&2; exit 3; }
 
 # Reference account: env wins, otherwise config/defaults.json must be filled.
@@ -152,7 +155,7 @@ else log "4/11  skip (resume)"; fi
 
 # --- STEP 5: download ---
 if ! is_done step_5_download; then
-  log "5/11  downloading 25 videos via HikerAPI"
+  log "5/11  downloading 25 videos via Loore"
   bash "$SCRIPTS/5-download-videos.sh" "$OUT"
   mark_done step_5_download
 else log "5/11  skip (resume)"; fi

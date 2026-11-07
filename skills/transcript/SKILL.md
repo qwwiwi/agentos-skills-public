@@ -1,72 +1,84 @@
 ---
 name: transcript
 description: >
-  Транскрипт YouTube роликов через TranscriptAPI.com. ОБЯЗАТЕЛЬНО используй этот скилл когда:
+  Транскрипт YouTube роликов через Loore (yt_transcript, публичные субтитры). ОБЯЗАТЕЛЬНО используй этот скилл когда:
   (1) пользователь присылает YouTube ссылку (youtube.com, youtu.be),
   (2) просит рассказать о чём видео, (3) просит транскрипт/субтитры,
   (4) говорит «что в этом видео», «о чём ролик», «перескажи видео»,
   (5) любой запрос связанный с содержимым YouTube видео.
   Триггеры: YouTube ссылка, «транскрипт», «о чём видео», «что говорят в видео»,
   «перескажи ролик», «summarize video», «get transcript».
-  НЕ использовать yt-dlp или youtube-transcript-api -- только этот скилл.
-homepage: https://transcriptapi.com
+  НЕ использовать yt-dlp, youtube-transcript-api и сайты транскриптов -- только этот скилл.
+homepage: https://loore.ai
 user-invocable: true
-metadata: {"openclaw":{"emoji":"📝","requires":{"env":["TRANSCRIPT_API_KEY"],"bins":["node"]},"primaryEnv":"TRANSCRIPT_API_KEY"}}
+metadata: {"openclaw":{"emoji":"📝","requires":{"env":["LOORE_API_KEY"],"bins":["python3"]},"optionalEnv":["LOORE_SPEND_AUTHORIZATION_ID"],"primaryEnv":"LOORE_API_KEY"}}
 ---
 
 # Transcript
 
-Fetch video transcripts via [TranscriptAPI.com](https://transcriptapi.com).
+Fetch YouTube video transcripts via [Loore](https://loore.ai) — tool `yt_transcript`
+(docs: https://docs.loore.ai). It reads the video's public captions, any length, no AI
+transcription; works for videos and Shorts.
+
+YouTube data comes only from Loore or the official YouTube Data API v3. The official API cannot
+download captions of other people's videos (`captions.download` works only for videos you can
+edit), so Loore is the only path here. Never fetch transcripts with yt-dlp, innertube or
+transcript sites from your own machine.
 
 ## Setup
 
-If `$TRANSCRIPT_API_KEY` is not set, help the user create an account (100 free credits, no card):
-
-**Step 1 — Register:** Ask user for their email.
-
-```bash
-node ./scripts/tapi-auth.js register --email USER_EMAIL
-```
-
-→ OTP sent to email. Ask user: _"Check your email for a 6-digit verification code."_
-
-**Step 2 — Verify:** Once user provides the OTP:
+If `$LOORE_API_KEY` is not set, ask the user to create a key: https://app.loore.ai →
+Настройки → API и MCP (the plaintext is shown once). Then:
 
 ```bash
-node ./scripts/tapi-auth.js verify --token TOKEN_FROM_STEP_1 --otp CODE
+export LOORE_API_KEY="..."   # never in chat, logs or git
 ```
 
-> API key saved to `~/.claude/skills/transcript/secrets/transcript-api-key`. See **File Writes** below for details. Existing file is backed up before modification.
-
-Manual option: [transcriptapi.com/signup](https://transcriptapi.com/signup) → Dashboard → API Keys.
-
-## File Writes
-
-The verify and save-key commands save the API key to `~/.claude/skills/transcript/secrets/transcript-api-key` (plain text file containing only the key). **Existing file is backed up to `~/.claude/skills/transcript/secrets/transcript-api-key.bak` before modification.**
-
-To use the API key in terminal/CLI outside the agent, add to your shell profile manually:
-`export TRANSCRIPT_API_KEY=<your-key>`
-
-## GET /api/v2/youtube/transcript
+**Spend approval.** A transcript costs 2 credits, only when one is returned (no captions = free;
+continuing a long transcript is free). The title header adds one `yt_video` call (1.5 credits).
+State the cap to the user once, and after their «yes» create a 24-hour budget:
 
 ```bash
-curl -s "https://transcriptapi.com/api/v2/youtube/transcript\
-?video_url=VIDEO_URL&format=text&include_timestamp=true&send_metadata=true" \
-  -H "Authorization: Bearer $TRANSCRIPT_API_KEY"
+python3 ./scripts/_loore.py approve --flow transcript --cap 20
+export LOORE_SPEND_AUTHORIZATION_ID=<printed id>
 ```
 
-| Param               | Required | Default | Values                          |
-| ------------------- | -------- | ------- | ------------------------------- |
-| `video_url`         | yes      | —       | YouTube URL or 11-char video ID |
-| `format`            | no       | `json`  | `json`, `text`                  |
-| `include_timestamp` | no       | `true`  | `true`, `false`                 |
-| `send_metadata`     | no       | `false` | `true`, `false`                 |
+The script sends `spend_authorization_id` with every paid call. Without it Loore answers
+`428 needs_user_confirmation`.
 
-Accepts: full URLs (`youtube.com/watch?v=ID`), short URLs (`youtu.be/ID`), shorts (`youtube.com/shorts/ID`), or bare video IDs.
+**MCP instead of the script.** Tool `yt_transcript` on `https://mcp.loore.ai/mcp`
+(header `Authorization: Bearer <key>`) takes the same arguments.
 
-**Default:** Always use `format=text&include_timestamp=true&send_metadata=true` unless user specifies otherwise.
+## Get a transcript
 
-**Response** (`format=json`):
+```bash
+python3 ./scripts/yt_transcript.py "VIDEO_URL" --timestamps
+```
+
+| Flag           | Default | Meaning                                                        |
+| -------------- | ------- | -------------------------------------------------------------- |
+| `VIDEO_URL`    | —       | YouTube URL (watch, youtu.be, shorts, live) or 11-char video ID |
+| `--timestamps` | off     | timed lines `[hh:mm:ss] text` (Loore `include_timestamps`)    |
+| `--json`       | off     | JSON instead of text                                           |
+| `--lang`       | auto    | caption language, e.g. `ru`, `en`, `en-US` (Loore `language`) |
+| `--original`   | off     | only captions in the original spoken language (`original_audio`) |
+| `--no-meta`    | off     | skip the `# title — channel` header (saves the `yt_video` call) |
+
+**Default:** always use `--timestamps` unless the user asks otherwise.
+
+Long transcripts come in windows (up to 40000 characters or 400 segments each, `truncated` /
+`nextOffset`); the script reads all of them.
+
+**Output** (text, `--timestamps`):
+
+```
+# Rick Astley - Never Gonna Give You Up — Rick Astley
+
+[00:00:18] We're no strangers to love
+[00:00:21] You know the rules and so do I
+```
+
+**Output** (`--json --timestamps`):
 
 ```json
 {
@@ -78,38 +90,27 @@ Accepts: full URLs (`youtube.com/watch?v=ID`), short URLs (`youtu.be/ID`), short
   ],
   "metadata": {
     "title": "Rick Astley - Never Gonna Give You Up",
-    "author_name": "Rick Astley",
-    "author_url": "https://www.youtube.com/@RickAstley",
-    "thumbnail_url": "https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg"
+    "author_name": "Rick Astley"
   }
 }
 ```
 
-**Response** (`format=text`):
-
-```json
-{
-  "video_id": "dQw4w9WgXcQ",
-  "language": "en",
-  "transcript": "[00:00:18] We're no strangers to love\n[00:00:21] You know the rules...",
-  "metadata": {...}
-}
-```
+Without `--timestamps`, `transcript` is one string.
 
 ## Errors
 
-| Code | Meaning       | Action                              |
-| ---- | ------------- | ----------------------------------- |
-| 401  | Bad API key   | Check key or re-setup               |
-| 402  | No credits    | Top up at transcriptapi.com/billing |
-| 404  | No transcript | Video may not have captions enabled |
-| 408  | Timeout       | Retry once after 2s                 |
-| 429  | Rate limited  | Wait and retry                      |
+| Exit / code      | Meaning                                  | Action                                         |
+| ---------------- | ---------------------------------------- | ---------------------------------------------- |
+| exit 3           | `LOORE_API_KEY` not set                  | Set the key (Setup)                            |
+| 401              | Bad or revoked key                       | Check the key in app.loore.ai                  |
+| 402              | Out of credits / plan quota              | Stop and tell the user                         |
+| 428              | Spend approval needed                    | Create the budget (Setup)                      |
+| 429              | Rate limited                             | The script waits `Retry-After`; longer than 120 s – exit 4 with the time to rerun |
+| exit 4 / 404     | No captions (or no captions in `--lang`) | The script lists the caption languages the video has |
 
 ## Tips
 
 - For long videos, summarize key points first, offer full transcript on request.
-- Use `format=json` when you need precise timestamps for quoting specific moments.
-- Use `include_timestamp=false` for clean text suitable for translation or analysis.
-- 1 credit per successful request. Errors don't cost credits.
-- Free tier: 100 credits, 300 req/min.
+- Use `--json --timestamps` when you need precise timestamps for quoting specific moments.
+- Drop `--timestamps` for clean text suitable for translation or analysis.
+- Pick the track: `yt_video` lists `captionLanguages`; pass one as `--lang`.

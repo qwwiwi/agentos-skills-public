@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
-"""Fetch the following list of the reference account via HikerAPI.
+"""Fetch the following list of the reference account via Loore (ig_following).
 
 The account is NOT hardcoded: --username > $TARGET_USER > config/defaults.json.
 
 Usage: python3 1-fetch-following.py <output_dir> [--username <login>]
-Reads: $HIKER_KEY (or $HIKER_API_KEY)
+Reads: $LOORE_API_KEY, optional $LOORE_SPEND_AUTHORIZATION_ID
 Writes: <output_dir>/state/following.json
 Cache:  <skill_root>/cache/following-<username>.json (TTL 24h)
+
+Loore list rows carry no bio and no follower count (they are readable only via
+ig_profile, one call per account). Step 2 fills both for the accounts that
+actually posted in the window, so this step stays one cheap paginated walk.
 """
 from __future__ import annotations
 
@@ -17,12 +21,13 @@ import sys
 import time
 from pathlib import Path
 
-import urllib.request
-import urllib.parse
-
+import _loore
 from _config import SKILL_ROOT, api_key, load_config, target_user
 
 CACHE_FILE = SKILL_ROOT / "cache" / "following.json"
+# 50 rows per page is the contract maximum; 200 pages = up to 10 000 accounts.
+PAGE_SIZE = 50
+MAX_PAGES = 200
 
 
 def _cache_ttl_seconds() -> int:
@@ -40,63 +45,37 @@ CACHE_TTL = _cache_ttl_seconds()
 log = logging.getLogger("reel-radar.1")
 
 
-def http_get(url: str, headers: dict[str, str]) -> dict:
-    req = urllib.request.Request(url, headers=headers)
-    with urllib.request.urlopen(req, timeout=30) as r:
-        return json.loads(r.read().decode("utf-8", errors="replace"))
+def fetch_following(username: str, key: str) -> list[dict]:
+    """Walk ig_following for one account and return pipeline-shaped rows.
 
+    Args:
+        username: reference account handle.
+        key: Loore API key.
 
-def fetch_user_id(username: str, key: str) -> str:
-    data = http_get(
-        f"https://api.instagrapi.com/v2/user/by/username?username={username}",
-        {"x-access-key": key},
-    )
-    uid = data.get("user", {}).get("pk") or data.get("pk")
-    if not uid:
-        raise RuntimeError(f"user_id missing in response: {data}")
-    return str(uid)
-
-
-def fetch_following(user_id: str, key: str) -> list[dict]:
+    Returns:
+        Rows with pk, username, full_name, is_private; biography and
+        follower_count stay empty until step 2 enriches them.
+    """
     out: list[dict] = []
-    page_id = ""
-    seen_pks: set[str] = set()
-    while True:
-        params = {"user_id": user_id}
-        if page_id:
-            params["page_id"] = page_id
-        q = urllib.parse.urlencode(params)
-        data = http_get(
-            f"https://api.instagrapi.com/v2/user/following?{q}",
-            {"x-access-key": key},
+    seen: set[str] = set()
+    body = {"username": username, "limit": PAGE_SIZE, "fields": "extended"}
+    for u in _loore.paginate("ig-following", body, key=key, max_pages=MAX_PAGES):
+        pk = str(u.get("id", ""))
+        handle = u.get("username", "")
+        ident = pk or handle
+        if not ident or ident in seen:
+            continue
+        seen.add(ident)
+        out.append(
+            {
+                "pk": pk,
+                "username": handle,
+                "full_name": u.get("fullName", ""),
+                "biography": "",
+                "is_private": bool(u.get("isPrivate", False)),
+                "follower_count": 0,
+            }
         )
-        users = data.get("response", {}).get("users") or data.get("users") or []
-        if not users:
-            break
-        new_count = 0
-        for u in users:
-            pk = str(u.get("pk", ""))
-            if pk and pk in seen_pks:
-                continue
-            seen_pks.add(pk)
-            new_count += 1
-            out.append(
-                {
-                    "pk": pk,
-                    "username": u.get("username", ""),
-                    "full_name": u.get("full_name", ""),
-                    "biography": u.get("biography", ""),
-                    "is_private": u.get("is_private", False),
-                    "follower_count": u.get("follower_count", 0),
-                }
-            )
-        if new_count == 0:
-            break
-        next_id = data.get("next_page_id") or data.get("response", {}).get("next_max_id") or ""
-        if not next_id or str(next_id) == str(page_id):
-            break
-        page_id = str(next_id)
-        time.sleep(0.3)
     return out
 
 
@@ -143,10 +122,12 @@ def main() -> int:
         log.info("cache hit: %d accounts", len(cached))
         following = cached
     else:
-        log.info("fetching @%s user_id", username)
-        uid = fetch_user_id(username, key)
-        log.info("user_id=%s, fetching following", uid)
-        following = fetch_following(uid, key)
+        log.info("fetching @%s following via Loore", username)
+        try:
+            following = fetch_following(username, key)
+        except _loore.LooreError as e:
+            log.error("%s", e.hint())
+            return 1
         save_cache(cache_path, following)
         log.info("cached %d accounts", len(following))
 

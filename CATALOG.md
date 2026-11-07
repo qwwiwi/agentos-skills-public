@@ -13,13 +13,13 @@ Production-tested скиллы для Claude Code. Здесь — sanitize-ве�
 | `perplexity-research` | Web research через Sonar API с источниками | available |
 | `twitter` | Чтение X/Twitter через FxTwitter + SocialData | available |
 | `markdown-new` | Чистое извлечение текста из URL в markdown | available |
-| `transcript` | Транскрипт YouTube-ролика по ссылке (TranscriptAPI.com) | available |
+| `transcript` | Транскрипт YouTube-ролика по ссылке через [Loore](https://loore.ai) (`yt_transcript`, публичные субтитры) | available |
 | `groq-voice` | Расшифровка голосовых сообщений (.ogg) через Groq Whisper | available |
 | `chat-archive` | Анализ архивов Telegram-чатов | available |
 | `telegram-chip` | Telegram user-аккаунт (Telethon): чтение, отправка и экспорт чатов через единый HTTP API | available |
 | `topic-monitor` | Регулярный мониторинг темы | available |
-| `yt-research` | YouTube-ресерч: поиск по нише, velocity, скан каналов-конкурентов, транскрипты | available |
-| `reel-radar` | Контент-разведка Instagram под съёмку: подписки эталонного аккаунта, залетевшие рилсы за неделю, транскрипты, дашборд с 25 референсами и 15 ТЗ на съёмку | available |
+| `yt-research` | YouTube-ресерч: поиск по нише, velocity, скан каналов-конкурентов, Shorts в тренде, комментарии, транскрипты; данные – [Loore](https://loore.ai), опционально официальный YouTube Data API v3 | available |
+| `reel-radar` | Контент-разведка Instagram под съёмку: подписки эталонного аккаунта, залетевшие рилсы за неделю, транскрипты, дашборд с 25 референсами и 15 ТЗ на съёмку; данные Instagram – [Loore](https://docs.loore.ai) | available |
 
 ## Кодинг и разработка
 
@@ -47,15 +47,18 @@ Production-tested скиллы для Claude Code. Здесь — sanitize-ве�
 
 ## Соцсети — Instagram, Reels, YouTube, Threads
 
+Источник данных Instagram во всех скиллах – [Loore](https://docs.loore.ai): один ключ `LOORE_API_KEY`, MCP и REST.
+Данные YouTube – только через [Loore](https://loore.ai) (документация – https://docs.loore.ai) или официальный YouTube Data API v3 (`YOUTUBE_API_KEY`). Скрапинг YouTube со своего IP (yt-dlp, innertube, oEmbed, сайты транскриптов) – только для скачивания самого видеофайла.
+
 | Скилл | Что делает | Статус |
 |-------|------------|--------|
-| `instagram-superpower` | Аналитика аккаунта и конкурентов через HikerAPI + скачивание рилсов и постов через Cobalt | available |
+| `instagram-superpower` | Аналитика аккаунта и конкурентов через [Loore](https://docs.loore.ai) + скачивание рилсов и постов через Cobalt | available |
 | `carousel-instagram` | Карусели для Instagram: слайды 1080×1350 из текста и фото, HTML/CSS + Playwright-рендер | available |
 | `reels` | Сценарии Reels — 5 форматов | available |
 | `youtube-producer` | YouTube long-form | available |
 | `youtube-thumbnail` | YouTube-обложки 1920×1080: лицо из кадров + gpt-image + наложение текста/шрифта | available |
 | `threads-content` | Контент для Threads | available |
-| `reels-analytics-for-brokers` | Радар восходящих офферов в Instagram: пул конкурентов, ранжирование рилсов по всплеску, разбор хуков, динамика между срезами. Образец под свою нишу | available |
+| `reels-analytics-for-brokers` | Радар восходящих офферов в Instagram: пул конкурентов, ранжирование рилсов по всплеску, разбор хуков, динамика между срезами. Данные – [Loore](https://docs.loore.ai). Образец под свою нишу | available |
 
 ## AI-генерация изображений и видео
 

@@ -235,12 +235,14 @@ def build_cta_bridge(code_word: str, benefit: str) -> str:
 
 def why_hit(reel: dict, formula: str) -> str:
     views = int(reel.get("play_count", 0))
-    er = float(reel.get("engagement_rate", 0))
+    er = reel.get("engagement_rate")
     formula_label = FORMULA_LABELS.get(formula, "—")
     ref_code = (reel.get("relevance_meta") or {}).get("best_ref_code", "")
     lines = [
         f"Формула <b>{html.escape(formula_label)}</b> – проверенный шаблон, зритель цепляется за хук в первые 3 секунды.",
-        f"Просмотры <b>{fmt_num(views)}</b> при ER <b>{er}%</b> – пик внимания к теме <b>{html.escape(detect_theme(reel.get('caption','')))}</b>.",
+        (f"Просмотры <b>{fmt_num(views)}</b> при ER <b>{er}%</b>" if er is not None
+         else f"Просмотры <b>{fmt_num(views)}</b> (лайки скрыты автором, ER не считается)")
+        + f" – пик внимания к теме <b>{html.escape(detect_theme(reel.get('caption','')))}</b>.",
     ]
     if ref_code:
         lines.append(f'Похожая подача залетала у тебя в рилсе <a href="https://www.instagram.com/reel/{html.escape(ref_code)}/" target="_blank">{html.escape(ref_code)}</a> – адаптация под твой блог высоковероятна.')
@@ -274,9 +276,9 @@ def main() -> int:
             .replace("{TOPIC}", html.escape(theme))
             .replace("{RELEVANCE_SCORE}", str(r.get("relevance_score", 0)))
             .replace("{VIEWS}", fmt_num(r.get("play_count", 0)))
-            .replace("{LIKES}", fmt_num(r.get("like_count", 0)))
+            .replace("{LIKES}", "скрыты" if r.get("likes_hidden") else fmt_num(r.get("like_count", 0)))
             .replace("{COMMENTS}", fmt_num(r.get("comment_count", 0)))
-            .replace("{ER}", str(r.get("engagement_rate", 0)))
+            .replace("{ER}", "—" if r.get("engagement_rate") is None else str(r["engagement_rate"]))
             .replace("{WHY_HIT}", why_hit(r, formula))
             .replace("{TELEPROMPTER}", teleprompter_from_transcript(transcript, r.get("caption", "")))
             .replace("{CTA_BRIDGE}", build_cta_bridge(code_word, cw_benefit))
