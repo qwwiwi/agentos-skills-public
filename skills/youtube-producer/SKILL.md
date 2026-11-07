@@ -125,6 +125,8 @@ Under each block — 1-2 sentences on what exactly to show.
 ## Transcript corpus
 
 `data/transcripts/<video_id>.txt` — transcripts of reference creator videos (plain text + metadata header).
+Add a new one with the `transcript` skill (Loore `yt_transcript`); fresh stats for the corpus
+come from `yt-research` (Loore or the official YouTube Data API v3). Never scrape YouTube for this data.
 
 Use when:
 - Finding a live quote for a technique

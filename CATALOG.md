@@ -13,12 +13,12 @@ Production-tested скиллы для Claude Code. Здесь — sanitize-ве�
 | `perplexity-research` | Web research через Sonar API с источниками | available |
 | `twitter` | Чтение X/Twitter через FxTwitter + SocialData | available |
 | `markdown-new` | Чистое извлечение текста из URL в markdown | available |
-| `transcript` | Транскрипт YouTube-ролика по ссылке (TranscriptAPI.com) | available |
+| `transcript` | Транскрипт YouTube-ролика по ссылке через [Loore](https://loore.ai) (`yt_transcript`, публичные субтитры) | available |
 | `groq-voice` | Расшифровка голосовых сообщений (.ogg) через Groq Whisper | available |
 | `chat-archive` | Анализ архивов Telegram-чатов | available |
 | `telegram-chip` | Telegram user-аккаунт (Telethon): чтение, отправка и экспорт чатов через единый HTTP API | available |
 | `topic-monitor` | Регулярный мониторинг темы | available |
-| `yt-research` | YouTube-ресерч: поиск по нише, velocity, скан каналов-конкурентов, транскрипты | available |
+| `yt-research` | YouTube-ресерч: поиск по нише, velocity, скан каналов-конкурентов, Shorts в тренде, комментарии, транскрипты; данные – [Loore](https://loore.ai), опционально официальный YouTube Data API v3 | available |
 | `reel-radar` | Контент-разведка Instagram под съёмку: подписки эталонного аккаунта, залетевшие рилсы за неделю, транскрипты, дашборд с 25 референсами и 15 ТЗ на съёмку; данные Instagram – [Loore](https://docs.loore.ai) | available |
 
 ## Кодинг и разработка
@@ -48,6 +48,7 @@ Production-tested скиллы для Claude Code. Здесь — sanitize-ве�
 ## Соцсети — Instagram, Reels, YouTube, Threads
 
 Источник данных Instagram во всех скиллах – [Loore](https://docs.loore.ai): один ключ `LOORE_API_KEY`, MCP и REST.
+Данные YouTube – только через [Loore](https://loore.ai) (документация – https://docs.loore.ai) или официальный YouTube Data API v3 (`YOUTUBE_API_KEY`). Скрапинг YouTube со своего IP (yt-dlp, innertube, oEmbed, сайты транскриптов) – только для скачивания самого видеофайла.
 
 | Скилл | Что делает | Статус |
 |-------|------------|--------|
