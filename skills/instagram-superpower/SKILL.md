@@ -1,8 +1,8 @@
 ---
 name: instagram-superpower
 description: >
-  Full toolkit for Instagram: account analytics via HikerAPI SaaS
-  + downloading reels/posts via Cobalt API.
+  Full toolkit for Instagram: account analytics via Loore (MCP + REST, https://docs.loore.ai)
+  + downloading reels/posts via Cobalt API (or Loore ig_download).
   Use when: (1) download a reel/video/photo from Instagram, (2) find top-performing reels of an account,
   (3) analyze a competitor (views, likes, comments, engagement), (4) manage a watchlist
   of accounts for monitoring, (5) download + transcribe video, (6) hashtag/location search.
@@ -18,7 +18,7 @@ description: >
 
 | Tool | Purpose | Cost |
 |------|---------|------|
-| **HikerAPI** | Analytics: profiles, reels, comments, followers, hashtags, search | $0.001/request (Standard) |
+| **Loore** | Analytics: profiles, reels, posts, comments, followers/following, hashtags, places, search, reel transcripts, file downloads | Credits per request, see https://loore.ai |
 | **Cobalt** | Download video/photo from Instagram CDN | Free (self-hosted) |
 | **Groq Whisper** | Transcription of downloaded videos | Free |
 
@@ -26,13 +26,11 @@ description: >
 
 | Resource | URL |
 |----------|-----|
-| HikerAPI docs | https://hiker-doc.readthedocs.io/en/latest/ |
-| HikerAPI Swagger | https://api.instagrapi.com/docs |
-| HikerAPI Redoc | https://api.instagrapi.com/redoc |
-| HikerAPI dashboard | https://hikerapi.com |
-| HikerAPI Python SDK | `pip install hikerapi` |
+| Loore docs | https://docs.loore.ai |
+| Loore tool list | https://docs.loore.ai/mcp/tools |
+| Loore OpenAPI contract | https://app.loore.ai/api/openapi.json |
+| Loore dashboard (API key) | https://app.loore.ai → Настройки → API и MCP |
 | Cobalt GitHub | https://github.com/imputnet/cobalt |
-| instagrapi GitHub | https://github.com/subzeroid/instagrapi |
 
 ## Path mapping
 
@@ -41,11 +39,11 @@ description: >
 | What | Path |
 |------|------|
 | Download script (Cobalt) | `~/.claude/skills/instagram-superpower/scripts/download.sh` |
-| Analytics script (HikerAPI) | `~/.claude/skills/instagram-superpower/scripts/analyze.sh` |
+| Analytics script (Loore REST) | `~/.claude/skills/instagram-superpower/scripts/analyze.sh` |
 | Watchlist script | `~/.claude/skills/instagram-superpower/scripts/watchlist.sh` |
 | Cookie deploy script | `~/.claude/skills/instagram-superpower/scripts/deploy-cookies.sh` |
 | Cookie check script | `~/.claude/skills/instagram-superpower/scripts/check-cookies.sh` |
-| HikerAPI key | `~/.secrets/hikerapi/api-key` |
+| Loore key | env `LOORE_API_KEY` (or your agent's secret store) |
 | Instagram credentials (for Cobalt) | `~/.secrets/cobalt/accounts.json` |
 | Instagram cookies (for Cobalt) | `~/.secrets/cobalt/cookies.json` |
 | Cobalt API key | `~/.secrets/cobalt/api-key` |
@@ -65,114 +63,129 @@ description: >
 ### How it all connects
 
 ```
-HikerAPI (cloud)                    Cobalt server (self-hosted)
+Loore (cloud)                        Cobalt server (self-hosted)
 ─────────────────                    ────────────────────────────
-api.instagrapi.com ◀── curl ──  Your machine
+mcp.loore.ai  ◀── MCP / REST ──  Your machine
   analytics, data                    Cobalt API (localhost:9000)
-  $0.001/request                       media download (free)
+  credits per request                  media download (free)
 
 Your machine:
-  analyze.sh  → HikerAPI (directly)
+  agent       → Loore MCP tools (ig_profile, ig_user_reels, ...)
+  analyze.sh  → Loore REST (directly)
   download.sh → SSH → Cobalt server → Instagram CDN
   watchlist.sh → analyze.sh + download.sh
 ```
 
-## HikerAPI — Authentication
+## Loore — Authentication
 
-```bash
-# IMPORTANT: use api.instagrapi.com (no Cloudflare) instead of api.hikerapi.com
-# api.hikerapi.com blocks urllib/requests from scripts
-cat ~/.secrets/hikerapi/api-key
+One key, two doors. Create the key at https://app.loore.ai → Настройки → API и MCP
+(the plaintext is shown once). Keep it in `LOORE_API_KEY`, never in chat or git.
 
-# Usage in curl:
-curl -s "https://api.instagrapi.com/ENDPOINT" \
-  -H "accept: application/json" \
-  -H "x-access-key: $(cat ~/.secrets/hikerapi/api-key)"
+**MCP** (preferred for the agent) — add the server to your client config:
 
-# Or as GET parameter:
-curl -s "https://api.instagrapi.com/ENDPOINT?access_key=$(cat ~/.secrets/hikerapi/api-key)"
+```json
+{
+  "mcpServers": {
+    "loore": {
+      "type": "http",
+      "url": "https://mcp.loore.ai/mcp",
+      "headers": { "Authorization": "Bearer <YOUR_KEY>" }
+    }
+  }
+}
 ```
 
-**Balance:** `GET /sys/balance` — shows remaining requests and balance.
+**REST** (scripts) — the same operation, MCP tool `ig_profile` = `POST /v1/ig-profile`:
 
-## HikerAPI — Main endpoints
+```bash
+curl -s -X POST https://mcp.loore.ai/v1/ig-profile \
+  -H "Authorization: Bearer $LOORE_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"username":"<username>"}'
+```
+
+Answer envelope: `{"status":"ok","result":{...}}` or `{"status":"error","error":"...","details":{...}}`.
+
+**Spend approval.** Paid calls need the user's approval. State the total cap in
+credits once, and after the user's «yes» create a flow budget with
+`spend_authorization` (`action: "create"`, `flow_id`, `approved_cap_credits`,
+`user_approved: true`, valid 24 hours); pass the returned `spend_authorization_id`
+in every covered paid call (`analyze.sh` reads it from `LOORE_SPEND_AUTHORIZATION_ID`).
+Without it Loore answers `428 needs_user_confirmation`.
+
+**Balance:** `get_credit_balance` (`POST /v1/billing-balance`) — free, shows `creditsRemaining`.
+
+## Loore — Main tools
+
+MCP tool name ↔ REST path: `ig_user_reels` ↔ `POST /v1/ig-user-reels`. Full list:
+https://docs.loore.ai/mcp/tools.
 
 ### Users
 
-| Endpoint | Description | Requests |
-|----------|-------------|---------|
-| `GET /v2/user/by/username?username=X` | Profile by username | 1 |
-| `GET /v2/user/by/id?id=X` | Profile by ID (faster) | 1 |
-| `GET /v2/user/clips?user_id=X` | User reels (12/page) | 1 |
-| `GET /gql/user/clips?user_id=X` | Reels via GraphQL | 1 |
-| `GET /v1/user/medias/chunk?user_id=X` | All posts (paginated) | 1 |
-| `GET /v2/user/stories?user_id=X` | Stories | 1 |
-| `GET /v2/user/followers?user_id=X` | Followers (paginated) | 1 |
-| `GET /v2/user/following?user_id=X` | Following | 1 |
-| `GET /v1/user/highlights?user_id=X` | Highlights | 1 |
+| Tool | Description |
+|------|-------------|
+| `ig_profile` | Profile by `username` or `user_id`: id, followers, following, posts, bio, category |
+| `ig_user_reels` | Account reels with views/likes/comments/saves/shares, up to 50 per page |
+| `ig_user_posts` | Feed posts (photos, carousels, videos), up to 50 per page |
+| `ig_user_stories` | Currently active stories (story id for `ig_download`) |
+| `ig_followers` | Followers (paginated, or `collect` into a file) |
+| `ig_following` | Following (paginated, or `collect` into a file) |
+| `ig_highlights_list` / `ig_highlight_items` | Highlights and their items |
+| `ig_analytics` | Ready metrics for a handle: engagement, content mix, posting windows, hashtags, top reels (`depth`: quick / full) |
 
 ### Media (posts/reels)
 
-| Endpoint | Description | Requests |
-|----------|-------------|---------|
-| `GET /v2/media/info/by/code?code=X` | Info by post code | 1 |
-| `GET /v2/media/info/by/url?url=X` | Info by URL | 1 |
-| `GET /v2/media/comments?media_id=X` | Comments (15/page) | 1 |
-| `GET /v2/media/likers?media_id=X` | Who liked | 1 |
-| `GET /v1/media/download/video?media_pk=X` | Download video | 1 |
-| `GET /v1/media/download/photo?media_pk=X` | Download photo | 1 |
+| Tool | Description |
+|------|-------------|
+| `ig_media` | One post/reel by link or shortcode, whole caption |
+| `ig_resolve` | What a link is (reel, post, story, profile) and its canonical id |
+| `ig_media_comments` / `ig_comment_replies` | Comments and threads |
+| `analyze_reel` | Reel transcript with timecodes, metrics, outlier score vs the author's median, frames on `depth: deep` |
+| `video_transcribe` | Word-timed transcript of a reel |
+| `ig_download` | The file of a post/reel/story: `downloadUrl` (no key, ~15 minutes) |
 
 ### Search
 
-| Endpoint | Description | Requests |
-|----------|-------------|---------|
-| `GET /v2/fbsearch/topsearch?query=X` | Global search | 1 |
-| `GET /v2/fbsearch/reels?query=X` | Reel search | 1 |
-| `GET /v2/fbsearch/accounts?query=X` | Account search | 1 |
-| `GET /v2/fbsearch/places?query=X` | Location search | 1 |
-
-### Hashtags
-
-| Endpoint | Description | Requests |
-|----------|-------------|---------|
-| `GET /v2/hashtag/by/name?name=X` | Hashtag info | 1 |
-| `GET /v2/hashtag/medias/top?hashtag_id=X` | Top posts by hashtag | 1 |
-| `GET /v2/hashtag/medias/recent?hashtag_id=X` | Recent posts by hashtag | 1 |
+| Tool | Description |
+|------|-------------|
+| `ig_search` | `kind`: accounts / reels / hashtags / places, plus `query` |
+| `ig_hashtag_media` | Publications under a hashtag, `rank`: top / recent / reels |
+| `ig_location_media` | Publications at a place (`location_id` from `ig_search kind=places`) |
 
 ### Response data
 
-Each media object contains:
-- `play_count` / `view_count` — views
-- `like_count` — likes
-- `comment_count` — comments
-- `taken_at` — publish timestamp
-- `code` — shortcode for URL (`instagram.com/reel/{code}/`)
-- `caption.text` — caption text
-- `user.username` — author
+Each media row (`ig_user_reels`, `ig_user_posts`, `ig_search`, `ig_hashtag_media`) contains:
+- `views` — plays (reels and videos only)
+- `likes` — likes (absent and `likesHidden: true` when the author hid them)
+- `comments` — comments
+- `saves`, `shares`, `reposts` — reels (absent means not received, not zero)
+- `takenAt` — publish time, ISO-8601 UTC
+- `code` — shortcode, `url` — permalink
+- `caption` — caption text when `include_caption: true` (500 chars; `ig_media` gives the whole caption)
+- `author` — author handle
+- `isPinned`, `isTrial` — leave such rows out of the author's median
 
 ## Quick start
 
 ### Account profile
+MCP: `ig_profile` with `{"username": "<username>"}`. REST:
 ```bash
-HIKER_KEY=$(cat ~/.secrets/hikerapi/api-key)
-curl -s "https://api.instagrapi.com/v2/user/by/username?username=<username>" \
-  -H "x-access-key: $HIKER_KEY" | python3 -m json.tool
+curl -s -X POST https://mcp.loore.ai/v1/ig-profile \
+  -H "Authorization: Bearer $LOORE_API_KEY" -H "Content-Type: application/json" \
+  -d '{"username":"<username>"}' | python3 -m json.tool
 ```
 
 ### Account reels (top performing)
+MCP: `ig_user_reels` with `{"username": "<username>", "limit": 50}`, sort by `views`. REST:
 ```bash
-HIKER_KEY=$(cat ~/.secrets/hikerapi/api-key)
-USER_ID=$(curl -s "https://api.instagrapi.com/v2/user/by/username?username=<username>" \
-  -H "x-access-key: $HIKER_KEY" | python3 -c "import json,sys; print(json.load(sys.stdin)['user']['pk'])")
-
-curl -s "https://api.instagrapi.com/v2/user/clips?user_id=$USER_ID" \
-  -H "x-access-key: $HIKER_KEY" | python3 -c "
+curl -s -X POST https://mcp.loore.ai/v1/ig-user-reels \
+  -H "Authorization: Bearer $LOORE_API_KEY" -H "Content-Type: application/json" \
+  -d "{\"username\":\"<username>\",\"limit\":50,\"spend_authorization_id\":\"$LOORE_SPEND_AUTHORIZATION_ID\"}" \
+  | python3 -c "
 import json, sys
-d = json.load(sys.stdin)
-items = d.get('response',{}).get('items',[])
-for item in sorted(items, key=lambda x: x['media'].get('play_count',0), reverse=True)[:5]:
-    m = item['media']
-    print(f'{m.get(\"play_count\",0):>10,} views | {m.get(\"like_count\",0):>6,} likes | https://instagram.com/reel/{m[\"code\"]}/')
+items = json.load(sys.stdin).get('result', {}).get('items', [])
+for m in sorted(items, key=lambda x: x.get('views', 0), reverse=True)[:5]:
+    print(f'{m.get(\"views\",0):>10,} views | {m.get(\"likes\",0):>6,} likes | {m[\"url\"]}')
 "
 ```
 
@@ -186,10 +199,11 @@ bash ~/.claude/skills/instagram-superpower/scripts/download.sh "https://www.inst
 bash ~/.claude/skills/instagram-superpower/scripts/download.sh "https://www.instagram.com/reel/<CODE>/" transcribe
 ```
 
-### Check HikerAPI balance
+### Check Loore balance
+MCP: `get_credit_balance` (free). REST:
 ```bash
-curl -s "https://api.instagrapi.com/sys/balance" \
-  -H "x-access-key: $(cat ~/.secrets/hikerapi/api-key)"
+curl -s -X POST https://mcp.loore.ai/v1/billing-balance \
+  -H "Authorization: Bearer $LOORE_API_KEY" -H "Content-Type: application/json" -d '{}'
 ```
 
 ## Typical scenarios
@@ -204,6 +218,8 @@ bash scripts/analyze.sh <username> 5 14
 bash scripts/download.sh "<url>" transcribe
 ```
 Cobalt downloads → Groq transcribes → agent analyzes.
+Alternative without Cobalt and Groq: Loore `analyze_reel` (`depth: "quick"` — caption,
+metrics, transcript with timecodes) or `video_transcribe` (word-timed transcript).
 
 ### 3. "Add to monitoring"
 ```bash
@@ -213,31 +229,37 @@ bash scripts/watchlist.sh scan 3 14
 
 ### 4. "Full competitor breakdown"
 1. `analyze.sh <username> 5 14` → top-5 reels + metrics
-2. `download.sh <url> transcribe` for top-3
+2. `download.sh <url> transcribe` for top-3 (or Loore `analyze_reel` per reel)
 3. Agent analyzes: hook → pain → solution → CTA
 
 ### 5. "What's viral in a hashtag"
+MCP: `ig_hashtag_media` with `{"hashtag": "aitools", "rank": "top"}` (or `"reels"` for video only).
+REST:
 ```bash
-HIKER_KEY=$(cat ~/.secrets/hikerapi/api-key)
-curl -s "https://api.instagrapi.com/v2/hashtag/by/name?name=aitools" -H "x-access-key: $HIKER_KEY"
-curl -s "https://api.instagrapi.com/v2/hashtag/medias/top?hashtag_id=ID" -H "x-access-key: $HIKER_KEY"
+curl -s -X POST https://mcp.loore.ai/v1/ig-hashtag-media \
+  -H "Authorization: Bearer $LOORE_API_KEY" -H "Content-Type: application/json" \
+  -d '{"hashtag":"aitools","rank":"top","limit":50}'
 ```
+Places: `ig_search` `{"kind": "places", "query": "..."}` → `ig_location_media` with the place id.
 
 ## Pagination
 
-Many endpoints return `next_page_id`. For the next page:
+List tools answer `hasMore` and, when it is true, `nextCursor`. Pass it back unchanged
+as `cursor` for the next page (`limit` up to 50; above 50 is refused, not clamped):
 ```bash
-curl -s "https://api.instagrapi.com/v2/user/clips?user_id=123&page_id=NEXT_PAGE_ID" \
-  -H "x-access-key: $HIKER_KEY"
+curl -s -X POST https://mcp.loore.ai/v1/ig-user-reels \
+  -H "Authorization: Bearer $LOORE_API_KEY" -H "Content-Type: application/json" \
+  -d '{"username":"<username>","limit":50,"cursor":"<nextCursor>"}'
 ```
 
-Reels: ~12 per page. For 50 reels you need ~4 requests.
+A cursor is valid for 6 hours; after that the walk restarts from page one.
 
 ## Rate Limits
 
-### HikerAPI
-- Limit: **8 requests/second** (Standard plan)
-- No risk of Instagram ban — HikerAPI uses its own account pool and proxies
+### Loore
+- Budgets per key, per minute and per day, depending on the plan; current values in the dashboard
+- On `429` — wait (`details.retry_after_seconds`) and retry; on `401` / `402` / `403` / `428` — stop and tell the user
+- Heavy calls (`analyze_reel`, `ig_download`) cost more — do not loop them "just in case"
 
 ### Cobalt (downloads)
 - Rate limits Instagram: **20 downloads/hour** per 1 account
@@ -246,16 +268,17 @@ Reels: ~12 per page. For 50 reels you need ~4 requests.
 - Strictly sequential, never parallel
 
 ### Optimal strategy
-- **Analytics** (HikerAPI): no limits, up to 8 req/sec
+- **Analytics** (Loore): one meaningful call instead of ten; `ig_analytics` gives a whole account in one request
 - **Downloads** (Cobalt): 20/hour, sequential
-- HikerAPI can also download (`/v1/media/download/*`), but uses paid requests — use Cobalt instead
+- Loore can also download (`ig_download`, paid per file) — use it when Cobalt is not set up
 
 ## Maintenance
 
-### HikerAPI
+### Loore
 ```bash
-curl -s "https://api.instagrapi.com/sys/balance" -H "x-access-key: $(cat ~/.secrets/hikerapi/api-key)"
-# Key in dashboard: https://hikerapi.com → Tokens
+curl -s -X POST https://mcp.loore.ai/v1/billing-balance \
+  -H "Authorization: Bearer $LOORE_API_KEY" -H "Content-Type: application/json" -d '{}'
+# Key in dashboard: https://app.loore.ai → Настройки → API и MCP (revoke a leaked key there)
 ```
 
 ### Cobalt
@@ -277,7 +300,7 @@ ssh root@<your-server-ip> "cd /opt/cobalt && docker compose restart cobalt-api"
 
 ## Security
 
-- HikerAPI key: `~/.secrets/hikerapi/api-key` (chmod 600)
+- Loore key: env `LOORE_API_KEY` only, header `Authorization: Bearer` (never in URL, chat or git)
 - Cobalt: ONLY `127.0.0.1:9000` on the Cobalt server
 - Cookies/credentials: ONLY `~/.secrets/cobalt/` (chmod 600)
 - Forbidden: logging keys/cookies, printing in chat, committing to git
