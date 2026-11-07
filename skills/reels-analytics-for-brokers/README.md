@@ -28,12 +28,17 @@ npx skills add github.com/qwwiwi/agentos-skills-public --skill reels-analytics-f
 |---|---|---|
 | Python 3.9+ | скрипты, только стандартная библиотека | https://python.org |
 | FFmpeg | раскадровка и извлечение аудио | https://ffmpeg.org |
-| `HIKER_API_KEY` | данные Instagram | https://hikerapi.com |
-| `GROQ_API_KEY` | транскрипция (опционально) | https://console.groq.com |
+| `LOORE_API_KEY` | данные Instagram через Loore (https://docs.loore.ai) | https://app.loore.ai → Настройки → API и MCP |
+| `LOORE_SPEND_AUTHORIZATION_ID` | одобренный пользователем бюджет расхода на прогон | `python3 scripts/loore.py approve` |
+| `GROQ_API_KEY` | транскрипция (опционально; или `LOORE_TRANSCRIBE=1`) | https://console.groq.com |
 
 ```bash
-export HIKER_API_KEY="..."
+export LOORE_API_KEY="..."
 export GROQ_API_KEY="..."
+
+# потолок расхода в кредитах – только после согласия пользователя
+python3 scripts/loore.py approve --flow reels-analytics-for-brokers --cap <кредиты>
+export LOORE_SPEND_AUTHORIZATION_ID="<выведенный id>"
 ```
 
 Ключи только через переменные окружения.
@@ -66,13 +71,14 @@ python3 scripts/offers_diff.py diff --previous runs/ПРОШЛАЯ_ДАТА --cu
 ```
 SKILL.md                     полный метод: правило номер ноль, пайплайн, ограничения
 config/niche.brokers.json    ниша целиком: ключевые слова, хэштеги, пороги
-scripts/hiker.py             клиент API: лимит запросов, ретраи, разбор ответов
+scripts/loore.py             клиент Loore: вызов, ретраи, ошибки, одобрение расхода
+scripts/loore_ig.py          лимит частоты, счётчик кредитов, нормализация полей, CLI для разбора
 scripts/seed_pool.py         сбор пула + бесплатный фильтр до платных запросов
 scripts/qualify_accounts.py  профиль, активность, медиана, охват к базе
 scripts/rank_reels.py        ранжирование по всплеску, а не по абсолюту
 scripts/offers_diff.py       извлечение офферов и сравнение срезов
 scripts/teardown_reel.sh     видео, раскадровка 0,5 с, транскрипт, комментарии
-references/api.md            эндпоинты, формы ответов, грабли
+references/api.md            методы Loore, формы ответов, цены, грабли
 references/scaling.md        расчёты на 1000 аккаунтов, партии, кэш, лимиты
 references/analysis.md       как из 300 роликов вывести формулу
 ```

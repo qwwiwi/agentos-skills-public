@@ -1,21 +1,26 @@
 #!/usr/bin/env python3
 """Step 3: qualify pool candidates — paid profile check, then activity + reach.
 
-This is the first step that spends real money (one profile call per candidate),
-which is exactly why seed_pool.py already threw away everything that failed the
-free username/full_name filter.
+This is the first step that spends real money (one ig-profile call per
+candidate, 1 credit each), which is exactly why seed_pool.py already threw away
+everything that failed the free username/full_name filter.
 
 Two gates, cheapest first:
-  1. Profile gate  — bio keywords, public account, follower floor. 1 request.
-  2. Activity gate — enough reels inside the window. ~2-3 requests, only for
-     accounts that survived gate 1.
+  1. Profile gate  — bio keywords, public account, follower floor.
+     1 ig-profile call.
+  2. Activity gate — enough reels inside the window. 1-2 ig-user-reels pages
+     (with captions a page holds ~15-30 reels), only for accounts that
+     survived gate 1.
+
+Data source: Loore (https://docs.loore.ai).
 
 An account that posts twice a quarter tells you nothing about what is working
 right now, so the activity floor is not a nicety — it is what keeps the sample
 made of people who are actually running the play.
 
 Usage:
-  export HIKER_API_KEY=...
+  export LOORE_API_KEY=...                      # app.loore.ai → Настройки → API и MCP
+  export LOORE_SPEND_AUTHORIZATION_ID=...       # python3 scripts/loore.py approve ...
   python3 qualify_accounts.py --config config/niche.brokers.json --out runs/2026-07-26
 
 Reads:  <out>/pool.json
@@ -34,8 +39,9 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-from hiker import Hiker, HikerError, media_fields, paginate, unwrap
-from seed_pool import keyword_hits
+from loore import LooreError
+from loore_ig import Client, media_fields, paginate
+from seed_pool import keyword_hits, must_stop
 
 log = logging.getLogger("qualify")
 
@@ -46,35 +52,42 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--limit", type=int, default=0, help="only process the first N candidates (0 = all)")
     parser.add_argument("--workers", type=int, default=6, help="parallel workers (the rate limiter still applies)")
-    parser.add_argument("--clips-pages", type=int, default=3, help="clip pages per account (~12 reels per page)")
-    parser.add_argument("--rps", type=float, default=6.0)
+    parser.add_argument("--clips-pages", type=int, default=2,
+                        help="ig-user-reels pages per account (~15-30 reels per page with captions)")
+    parser.add_argument("--rps", type=float, default=2.0, help="requests per second cap")
     return parser.parse_args()
 
 
-def fetch_profile(client: Hiker, candidate: dict[str, Any]) -> dict[str, Any] | None:
-    """Fetch the full profile. Manual seeds arrive without a numeric id."""
+def fetch_profile(client: Client, candidate: dict[str, Any]) -> dict[str, Any] | None:
+    """Fetch the profile via ig-profile (1 credit).
+
+    Manual seeds and hashtag/search authors arrive without a numeric id
+    (``manual:`` / ``handle:`` keys) and are looked up by handle instead.
+
+    Returns:
+        Loore ``profile`` object (id, username, fullName, biography, category,
+        followers, isPrivate, ...) or None when the account is gone.
+    """
     pk = candidate["pk"]
-    if pk.startswith("manual:"):
-        payload = client.get("/v2/user/by/username", {"username": candidate["username"]})
-    else:
-        payload = client.get("/v2/user/by/id", {"id": pk})
-    user = unwrap(payload, "user") or payload.get("user") or payload
-    return user if isinstance(user, dict) and user.get("username") else None
+    body = {"user_id": pk} if pk.isdigit() else {"username": candidate["username"]}
+    profile = client.call("ig-profile", body).get("profile")
+    return profile if isinstance(profile, dict) and profile.get("username") else None
 
 
-def fetch_reels(client: Hiker, user_id: str, cutoff_ts: float, pages: int) -> list[dict[str, Any]]:
+def fetch_reels(client: Client, user_id: str, cutoff_ts: float, pages: int) -> list[dict[str, Any]]:
     """Fetch recent reels and keep the ones inside the window.
 
-    Note: the clips endpoint returns PINNED reels first, so the feed is not in
+    Note: the feed starts with PINNED reels (``isPinned``), so it is not in
     chronological order. Never stop paginating at the first "old" item — read a
-    fixed number of pages and filter by taken_at afterwards.
+    fixed number of pages and filter by taken_at afterwards. Captions are asked
+    for (capped at 500 characters per row) because offers_diff.py reads them.
     """
     collected: dict[str, dict[str, Any]] = {}
-    for page in paginate(client, "/v2/user/clips", {"user_id": user_id}, ("items", "response"), max_pages=pages):
+    body = {"user_id": user_id, "limit": 50, "include_caption": True}
+    for page in paginate(client, "ig-user-reels", body, max_pages=pages):
         if not page:
             break
-        for item in page:
-            media = item.get("media") if isinstance(item, dict) and isinstance(item.get("media"), dict) else item
+        for media in page:
             if isinstance(media, dict):
                 reel = media_fields(media)
                 # Keyed rather than appended: a repeated page would otherwise
@@ -86,7 +99,7 @@ def fetch_reels(client: Hiker, user_id: str, cutoff_ts: float, pages: int) -> li
     return [reel for reel in collected.values() if reel["taken_at"] >= cutoff_ts]
 
 
-def qualify_one(client: Hiker, candidate: dict[str, Any], config: dict[str, Any],
+def qualify_one(client: Client, candidate: dict[str, Any], config: dict[str, Any],
                 cutoff_ts: float, pages: int) -> dict[str, Any]:
     """Run both gates on one candidate and return a verdict record."""
     verdict: dict[str, Any] = {"username": candidate["username"], "passed": False, "reason": ""}
@@ -97,7 +110,8 @@ def qualify_one(client: Hiker, candidate: dict[str, Any], config: dict[str, Any]
         return verdict
 
     bio = profile.get("biography", "") or ""
-    surface = f"{profile.get('username', '')} {profile.get('full_name', '')} {bio} {profile.get('category', '') or ''}"
+    full_name = profile.get("fullName", "") or ""
+    surface = f"{profile.get('username', '')} {full_name} {bio} {profile.get('category', '') or ''}"
     if keyword_hits(surface, config.get("negative_keywords", [])):
         verdict["reason"] = "negative_keyword"
         return verdict
@@ -108,22 +122,27 @@ def qualify_one(client: Hiker, candidate: dict[str, Any], config: dict[str, Any]
         verdict["reason"] = "no_bio_keyword"
         return verdict
 
-    followers = int(profile.get("follower_count") or 0)
+    followers = int(profile.get("followers") or 0)
     if followers < int(config.get("min_followers", 0)):
         verdict["reason"] = "below_follower_floor"
         return verdict
-    if profile.get("is_private"):
+    if profile.get("isPrivate"):
         verdict["reason"] = "private"
         return verdict
 
-    user_id = str(profile.get("pk") or profile.get("id") or "")
+    user_id = str(profile.get("id") or "")
+    if not user_id.isdigit():
+        verdict["reason"] = "profile_without_id"
+        return verdict
     reels = fetch_reels(client, user_id, cutoff_ts, pages)
     min_reels = int(config.get("min_reels_in_window", 10))
     if len(reels) < min_reels:
         verdict["reason"] = f"low_activity({len(reels)}<{min_reels})"
         return verdict
 
-    views = [r["views"] for r in reels if r["views"] > 0]
+    # Loore flags a pinned old hit and a trial reel (shown to non-followers
+    # only); both describe a different audience, so neither shapes the median.
+    views = [r["views"] for r in reels if r["views"] > 0 and not r["is_pinned"] and not r["is_trial"]]
     median_views = statistics.median(views) if views else 0.0
 
     verdict.update({
@@ -132,7 +151,7 @@ def qualify_one(client: Hiker, candidate: dict[str, Any], config: dict[str, Any]
         "account": {
             "pk": user_id,
             "username": profile.get("username", ""),
-            "full_name": profile.get("full_name", ""),
+            "full_name": full_name,
             "biography": bio,
             "followers": followers,
             "reels_in_window": len(reels),
@@ -174,7 +193,7 @@ def main() -> int:
     log.info("qualifying %d candidates | window=%dd | cutoff=%s",
              len(pool), window_days, datetime.fromtimestamp(cutoff_ts, tz=timezone.utc).date())
 
-    client = Hiker(rps=args.rps)
+    client = Client(rps=args.rps)
     accounts: list[dict[str, Any]] = []
     reels: list[dict[str, Any]] = []
     reasons: dict[str, int] = {}
@@ -191,6 +210,11 @@ def main() -> int:
             try:
                 verdict = future.result()
             except Exception as err:
+                if must_stop(err):
+                    # Key, credits or spend approval: every other call would be
+                    # refused the same way, so stop instead of burning through.
+                    executor.shutdown(wait=False, cancel_futures=True)
+                    raise
                 log.warning("@%s failed: %s", candidate["username"], err)
                 reasons["error"] = reasons.get("error", 0) + 1
                 continue
@@ -204,8 +228,8 @@ def main() -> int:
                 accounts.append(verdict["account"])
                 reels.extend(verdict["reels"])
             if i % 25 == 0:
-                log.info("progress %d/%d | qualified=%d | requests=%d (~$%.3f)",
-                         i, len(pool), len(accounts), client.requests_used, client.spent_usd)
+                log.info("progress %d/%d | qualified=%d | requests=%d | credits=%.1f",
+                         i, len(pool), len(accounts), client.requests_used, client.credits_charged)
 
     accounts.sort(key=lambda a: a["median_views"], reverse=True)
     (args.out / "accounts.json").write_text(json.dumps(accounts, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -217,22 +241,21 @@ def main() -> int:
         "reels_collected": len(reels),
         "rejection_reasons": dict(sorted(reasons.items(), key=lambda kv: -kv[1])),
         "requests_used": client.requests_used,
-        "estimated_cost_usd": round(client.spent_usd, 4),
+        "credits_charged": round(client.credits_charged, 3),
         "window_days": window_days,
     }
     (args.out / "qualify_stats.json").write_text(json.dumps(stats, ensure_ascii=False, indent=2), encoding="utf-8")
 
-    log.info("qualified=%d of %d | reels=%d | requests=%d (~$%.3f)",
-             len(accounts), len(pool), len(reels), client.requests_used, client.spent_usd)
+    log.info("qualified=%d of %d | reels=%d | requests=%d | credits=%.1f",
+             len(accounts), len(pool), len(reels), client.requests_used, client.credits_charged)
     return 0
 
 
 if __name__ == "__main__":
     try:
         sys.exit(main())
-    except HikerError as err:
-        # A missing or rejected key is the most common failure. The troubleshooting
-        # table promises a readable line, not a stack trace.
-        logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
-        log.error("%s", err)
+    except LooreError as err:
+        # A rejected key, empty balance or missing spend approval. The
+        # troubleshooting table promises a readable line, not a stack trace.
+        print(err.hint(), file=sys.stderr)
         sys.exit(2)
