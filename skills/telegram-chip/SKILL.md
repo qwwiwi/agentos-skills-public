@@ -5,6 +5,9 @@ description: Unified Telegram core (HTTP API + MCP stdio + tgdl export) with sin
 
 # telegram-chip
 
+> **Устарело.** Telegram chip теперь живёт в отдельном репозитории: https://github.com/qwwiwi/telegram-chip-public – ставьте оттуда. Эта копия больше не обновляется.
+
+
 > **Если диалога нет – не пишем. Первым пишет только человек.**
 > Hard rule (ban risk): the owner's account NEVER writes first. `POST /messages/send`,
 > `/messages/send-file` and `/messages/forward` to a private chat are refused with HTTP 403
